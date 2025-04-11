@@ -2,7 +2,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    USER_DATABASE_URL: str
+    DB_USER: str
+    DB_PASSWORD: str
+    DB_HOST: str
+    DB_NAME: str
     JWT_TOKEN_SECRET_KEY: str
     JWT_TOKEN_ALGORITHM: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int
