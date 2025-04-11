@@ -1,0 +1,44 @@
+services:
+  user-service:
+    container_name: user-service
+    build: ./user-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./user-service:/user-service
+    depends_on:
+      - user-db
+    environment:
+      - USER_DATABASE_URL=${USER_DATABASE_URL}
+      - JWT_TOKEN_SECRET_KEY=${JWT_TOKEN_SECRET_KEY}
+      - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - REFRESH_TOKEN_EXPIRE_MINUTES=${REFRESH_TOKEN_EXPIRE_MINUTES}
+    networks:
+      - ecommerce-net
+
+  user-db:
+    container_name: user-db
+    image: postgres:17.4-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./user-service/data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${USER_DB_NAME}
+      - POSTGRES_USER=${USER_DB_USER}
+      - POSTGRES_PASSWORD=${USER_DB_PASS}
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}'" ]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    networks:
+      - ecommerce-net
+
+volumes:
+  postgres-data:
+
+networks:
+  ecommerce-net:
+    driver: bridge
