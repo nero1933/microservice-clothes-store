@@ -1,4 +1,4 @@
-from logging.config import fileConfig
+from loggers.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -20,7 +20,7 @@ DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
 config = context.config
 config.set_main_option('sqlalchemy.url', DATABASE_URL)
 
-# Interpret the config file for Python logging.
+# Interpret the config file for Python loggers.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)

@@ -1,7 +1,8 @@
+from loggers import sql_logger
 import uvicorn
 from fastapi import FastAPI
 
-from endpoints.users import router as users_router
+from endpoints.auth import router as users_router
 
 app = FastAPI()
 

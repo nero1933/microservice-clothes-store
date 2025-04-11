@@ -1,1 +1,1 @@
-from .users import router
+from .auth import router

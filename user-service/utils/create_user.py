@@ -1,18 +1,18 @@
-from passlib.context import CryptContext
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from models.users import User
 from schemas import UserCreateSchema
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
-def get_password_hash(password: str):
-    return pwd_context.hash(password)
+from utils import get_password_hash
 
 
-async def create_user(user_data: UserCreateSchema, db: AsyncSession,
-                      is_active: bool = False, is_admin: bool = False):
+async def create_user(
+        user_data: UserCreateSchema,
+        db: AsyncSession,
+        is_active: bool = False,
+        is_admin: bool = False
+) -> User:
+    """ Create a new user. """
+
     hashed_password = get_password_hash(user_data.password)
     user = User(
         email=user_data.email,
@@ -30,9 +30,13 @@ async def create_user(user_data: UserCreateSchema, db: AsyncSession,
     except IntegrityError as e:
         await db.rollback()
         if 'unique constraint' in str(e.orig).lower():
-            raise ValueError("User with this email already exists!")
+            if 'email' in str(e.orig):
+                raise ValueError("User with this email already exists!")
+
         raise e
 
 
 async def create_superuser(user_data: UserCreateSchema, db: AsyncSession):
+    """ Create a new superuser. """
+
     return await create_user(user_data, db, is_active=True, is_admin=True)

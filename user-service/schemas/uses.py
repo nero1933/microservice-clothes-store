@@ -26,3 +26,10 @@ class UserReadSchema(UserBaseSchema):
     is_active: bool
     created_at: datetime
 
+
+class UserInDBSchema(UserReadSchema):
+    hashed_password: str
+
+
+class UserResponseSchema(UserBaseSchema):
+    pass
