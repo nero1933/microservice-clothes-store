@@ -10,7 +10,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import settings
-from db import get_db
+from db import async_get_db
 from schemas import TokenDataSchema, UserReadSchema
 from models.users import User
 from schemas import UserInDBSchema
@@ -37,7 +37,7 @@ async def authenticate_user(email: str, password: str, db: AsyncSession) -> Opti
     return user
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None):
+def create_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -54,7 +54,7 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
 
 async def get_current_user(
         token: Annotated[str, Depends(oauth2_scheme)],
-        db: AsyncSession = Depends(get_db)
+        db: Annotated[AsyncSession, Depends(async_get_db)]
 ):
 
     credentials_exception = HTTPException(
