@@ -31,5 +31,5 @@ class UserInDBSchema(UserReadSchema):
     hashed_password: str
 
 
-class UserResponseSchema(UserBaseSchema):
-    pass
+class UserFullSchema(UserInDBSchema):
+    is_admin: bool

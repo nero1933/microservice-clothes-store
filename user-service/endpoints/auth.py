@@ -8,8 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import settings
 from db import async_get_db
-from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema
-from utils.auth import authenticate_user, get_current_active_user, create_token, oauth2_scheme
+from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
+from schemas.error_responses import ErrorResponse
+from utils.auth import authenticate_user, oauth2_scheme, \
+    get_current_active_user, create_jwt_token, blacklist_jwt_token
 from utils.create_user import create_user
 
 router = APIRouter(prefix="/auth", tags=["users"])
@@ -21,13 +23,27 @@ async def register_user(
         db: Annotated[AsyncSession, Depends(async_get_db)]
 ):
     try:
-        user = await create_user(db=db, user_data=user_data, is_active=True, is_admin=False)
+        user = await create_user(db=db, user_data=user_data, is_active=False, is_admin=False)
         return user
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
 
-@router.post("/login", response_model=TokenReadSchema, status_code=200)
+@router.post(
+    "/login",
+    response_model=TokenReadSchema,
+    responses={
+        401: {
+            "model": ErrorResponse,
+            "description": "Invalid credentials",
+        },
+        403: {
+            "model": ErrorResponse,
+            "description": "Inactive user",
+        },
+    },
+    status_code=200
+)
 async def login(
         response: Response,
         form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
@@ -37,18 +53,26 @@ async def login(
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Invalid credentials.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Inactive user.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     # Create 'access_token'
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_token(
+    access_token = create_jwt_token(
         data={"sub": user.email, "type": "access"}, expires_delta=access_token_expires
     )
     # Create 'refresh_token'
     max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
     refresh_token_expires = timedelta(seconds=max_age)
-    refresh_token = create_token(
+    refresh_token = create_jwt_token(
         data={"sub": user.email, "type": "refresh"}, expires_delta=refresh_token_expires
     )
 
@@ -71,23 +95,20 @@ async def logout(
         access_token: Annotated[str, Depends(oauth2_scheme)],
         refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
 ):
-    try:
-        if not refresh_token:
-            raise HTTPException(status_code=401, detail="Refresh token not found")
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Refresh token not found."
+        )
 
-        # Block tokens
-        # ---> Implement <---
-
-        response.delete_cookie(key="refresh_token")
-
-        return {"message": "Logged out successfully"}
-
-    except PyJWTError:
-        raise HTTPException(status_code=401, detail="Invalid token")
+    await blacklist_jwt_token(db=db, access_token=access_token, refresh_token=refresh_token)
+    response.delete_cookie(key="refresh_token")
+    return {"message": "Logged out successfully."}
 
 
 @router.get("/me", response_model=UserReadSchema, status_code=200)
-async def read_users_me(
-    current_user: Annotated[UserReadSchema, Depends(get_current_active_user)]
+async def read_user_me(
+    current_user: Annotated[UserFullSchema, Depends(get_current_active_user)]
 ):
-    return current_user
+    """ Returns current user information """
+    return UserReadSchema.model_validate(current_user)
