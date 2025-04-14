@@ -1,7 +1,4 @@
-from datetime import timedelta
 from typing import Annotated, Optional
-from jwt import PyJWTError
-
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Cookie
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,7 +8,7 @@ from db import async_get_db
 from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
 from schemas.error_responses import ErrorResponse
 from utils.auth import authenticate_user, oauth2_scheme, \
-    get_current_active_user, create_jwt_token, blacklist_jwt_token
+    get_current_active_user, blacklist_jwt_token, obtain_token_pair, decode_jwt_token
 from utils.create_user import create_user
 
 router = APIRouter(prefix="/auth", tags=["users"])
@@ -64,36 +61,31 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # Create 'access_token'
-    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_jwt_token(
-        data={"sub": user.email, "type": "access"}, expires_delta=access_token_expires
-    )
-    # Create 'refresh_token'
-    max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
-    refresh_token_expires = timedelta(seconds=max_age)
-    refresh_token = create_jwt_token(
-        data={"sub": user.email, "type": "refresh"}, expires_delta=refresh_token_expires
-    )
+    # Create tokens
+    access_token, refresh_token = obtain_token_pair(sub=user.email)
 
+    # Set 'refresh_token' to cookie
+    max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
         httponly=True,
         # secure=True,
         samesite="strict",
-        path="/refresh",
+        path="/",
         max_age=max_age,
     )
 
+    # Return 'access_token' in response body
     return TokenReadSchema(access_token=access_token, token_type="bearer")
+
 
 @router.post("/logout", status_code=200)
 async def logout(
         response: Response,
         db: Annotated[AsyncSession, Depends(async_get_db)],
         access_token: Annotated[str, Depends(oauth2_scheme)],
-        refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
+        refresh_token: Optional[str] = Cookie(default='refresh_token'),
 ):
     if not refresh_token:
         raise HTTPException(
@@ -101,9 +93,59 @@ async def logout(
             detail="Refresh token not found."
         )
 
-    await blacklist_jwt_token(db=db, access_token=access_token, refresh_token=refresh_token)
+    await blacklist_jwt_token(
+        db=db,
+        access_token=access_token,
+        refresh_token=refresh_token
+    )
     response.delete_cookie(key="refresh_token")
     return {"message": "Logged out successfully."}
+
+
+@router.post("/refresh", response_model=UserFullSchema, status_code=200)
+async def refresh(
+        response: Response,
+        db: Annotated[AsyncSession, Depends(async_get_db)],
+        refresh_token: Optional[str] = Cookie(default='refresh_token'),
+) -> TokenReadSchema:
+
+    payload = decode_jwt_token(refresh_token)
+    user_email = payload["email"]
+    token_type = payload["token_type"]
+
+    if token_type != "refresh":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token type not supported.",
+        )
+
+    # Create new tokens
+    access_token, refresh_token = obtain_token_pair(sub=user_email)
+
+    # Blacklist old 'refresh_token'
+    await blacklist_jwt_token(
+        db=db,
+        access_token=None,
+        refresh_token=refresh_token
+    )
+
+    # Delete old 'refresh_token' from cookies
+    response.delete_cookie(key="refresh_token")
+
+    # Set new 'refresh_token' to cookie
+    max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        # secure=True,
+        samesite="strict",
+        path="/",
+        max_age=max_age,
+    )
+
+    # Return new 'access_token' in response body
+    return TokenReadSchema(access_token=access_token, token_type="bearer")
 
 
 @router.get("/me", response_model=UserReadSchema, status_code=200)

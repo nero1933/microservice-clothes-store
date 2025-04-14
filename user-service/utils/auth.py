@@ -45,12 +45,16 @@ async def authenticate_user(
     return user
 
 
-def create_jwt_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
+
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
+    elif not expires_delta and data.get('type') == 'refresh':
+        expire = datetime.now(timezone.utc) + timedelta(minutes=60 * 24 * 7) # default 7 days
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15)
+        expire = datetime.now(timezone.utc) + timedelta(minutes=15) # default 15 min
+
     to_encode.update({"exp": expire})
     to_encode["jti"] = str(uuid4())
     encoded_jwt = jwt.encode(
@@ -61,37 +65,20 @@ def create_jwt_token(data: dict, expires_delta: timedelta | None = None) -> str:
     return encoded_jwt
 
 
-async def blacklist_jwt_token(
-        db: Annotated[AsyncSession, Depends(async_get_db)],
-        access_token: Annotated[str, Depends(oauth2_scheme)],
-        refresh_token: Optional[str] = Cookie(None, alias="refresh_token"),
-):
-    for token in (access_token, refresh_token):
-        if not token:
-            continue
+def obtain_token_pair(sub: str):
+    # Create 'access_token'
+    access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_jwt_token(
+        data={"sub": sub, "type": "access"}, expires_delta=access_token_expires
+    )
+    # Create 'refresh_token'
+    refresh_token_expires_minutes = 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
+    refresh_token_expires = timedelta(minutes=refresh_token_expires_minutes)
+    refresh_token = create_jwt_token(
+        data={"sub": sub, "type": "refresh"}, expires_delta=refresh_token_expires
+    )
 
-        try:
-            payload = jwt.decode(
-                token,
-                settings.JWT_SECRET_KEY,
-                algorithms=[settings.JWT_ALGORITHM]
-            )
-            jti_str = payload.get("jti")
-            if not jti_str:
-                continue
-
-            jti = uuid.UUID(jti_str)
-
-        except (PyJWTError, ValueError, TypeError):
-            continue
-
-        stmt = select(BlacklistedToken).where(BlacklistedToken.jti == jti)
-        result = await db.execute(stmt)
-        jti_in_db = result.scalar_one_or_none()
-        if not jti_in_db:
-            db.add(BlacklistedToken(jti=jti))
-
-    await db.commit()
+    return access_token, refresh_token
 
 
 def decode_jwt_token(token: str) -> dict:
@@ -144,6 +131,39 @@ async def verify_jwt_payload(payload, token_type: str, db: AsyncSession) -> dict
         raise credentials_exception
 
     return payload
+
+
+async def blacklist_jwt_token(
+        db: Annotated[AsyncSession, Depends(async_get_db)],
+        access_token: Optional[str],
+        refresh_token: Optional[str],
+):
+    for token in (access_token, refresh_token):
+        if not token:
+            continue
+
+        try:
+            payload = jwt.decode(
+                token,
+                settings.JWT_TOKEN_SECRET_KEY,
+                algorithms=[settings.JWT_TOKEN_ALGORITHM]
+            )
+            jti_str = payload.get("jti")
+            if not jti_str:
+                continue
+
+            jti = uuid.UUID(jti_str)
+
+        except (PyJWTError, ValueError, TypeError):
+            continue
+
+        stmt = select(BlacklistedToken).where(BlacklistedToken.jti == jti)
+        result = await db.execute(stmt)
+        jti_in_db = result.scalar_one_or_none()
+        if not jti_in_db:
+            db.add(BlacklistedToken(jti=jti))
+
+    await db.commit()
 
 
 async def get_current_user(
