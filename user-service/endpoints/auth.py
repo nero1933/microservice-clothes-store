@@ -85,7 +85,7 @@ async def logout(
         response: Response,
         db: Annotated[AsyncSession, Depends(async_get_db)],
         access_token: Annotated[str, Depends(oauth2_scheme)],
-        refresh_token: Optional[str] = Cookie(default='refresh_token'),
+        refresh_token: Optional[str] = Cookie(default=None),
 ):
     if not refresh_token:
         raise HTTPException(
@@ -119,9 +119,6 @@ async def refresh(
             detail="Token type not supported.",
         )
 
-    # Create new tokens
-    access_token, refresh_token = obtain_token_pair(sub=user_email)
-
     # Blacklist old 'refresh_token'
     await blacklist_jwt_token(
         db=db,
@@ -129,11 +126,11 @@ async def refresh(
         refresh_token=refresh_token
     )
 
-    # Delete old 'refresh_token' from cookies
-    response.delete_cookie(key="refresh_token")
+    # Create new tokens
+    access_token, refresh_token = obtain_token_pair(sub=user_email)
 
-    # Set new 'refresh_token' to cookie
-    max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds
+    # Renew 'refresh_token' in cookies
+    response.delete_cookie(key="refresh_token")
     response.set_cookie(
         key="refresh_token",
         value=refresh_token,
@@ -141,7 +138,7 @@ async def refresh(
         # secure=True,
         samesite="strict",
         path="/",
-        max_age=max_age,
+        max_age=60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds,
     )
 
     # Return new 'access_token' in response body
