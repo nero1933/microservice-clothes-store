@@ -12,7 +12,7 @@ from utils.auth import authenticate_user, oauth2_scheme, \
     set_refresh_token_cookie, raise_credentials_exception
 from utils.create_user import create_user
 
-router = APIRouter(prefix="/auth", tags=["users"])
+router = APIRouter()
 
 
 @router.post('/register', response_model=UserReadSchema, status_code=201)
@@ -21,7 +21,7 @@ async def register(
         db: Annotated[AsyncSession, Depends(async_get_db)]
 ):
     try:
-        user = await create_user(db=db, user_data=user_data, is_active=False, is_admin=False)
+        user = await create_user(db=db, user_data=user_data, is_active=True, is_admin=False)
         return user
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -59,7 +59,7 @@ async def login(
         )
 
     # Create tokens
-    access_token, refresh_token = obtain_token_pair(sub=user.id)
+    access_token, refresh_token = obtain_token_pair(sub=str(user.id))
 
     # Set 'refresh_token' to cookie
     set_refresh_token_cookie(response, refresh_token)
@@ -90,12 +90,17 @@ async def logout(
     return {"message": "Logged out successfully."}
 
 
-@router.post("/refresh", response_model=UserFullSchema, status_code=200)
+@router.post("/refresh", response_model=TokenReadSchema, status_code=200)
 async def refresh(
         response: Response,
         db: Annotated[AsyncSession, Depends(async_get_db)],
         refresh_token: Optional[str] = Cookie(default=None),
 ) -> TokenReadSchema:
+    if not refresh_token:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Refresh token not found."
+        )
 
     # Decode and validate payload
     payload = await decode_and_validate_token(refresh_token, token_type="refresh", db=db)

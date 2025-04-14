@@ -6,7 +6,7 @@ from endpoints.auth import router as users_router
 
 app = FastAPI()
 
-app.include_router(users_router)
+app.include_router(users_router, prefix='/api/v1/auth', tags=["auth"])
 
 
 if __name__ == "__main__":

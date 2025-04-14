@@ -1,6 +1,5 @@
 import uuid
 from functools import wraps
-from uuid import uuid4
 
 import jwt
 from datetime import datetime, timezone, timedelta
@@ -9,6 +8,9 @@ from typing import Annotated, Optional
 from fastapi import Depends, status, HTTPException, Response
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import PyJWTError
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError, IntegrityError
+
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,10 +21,10 @@ from schemas import UserFullSchema
 from models.users import User
 from utils import verify_password
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 
-async def get_user(user_data: dict, db: AsyncSession) -> Optional[UserFullSchema]:
+async def get_user(user_data: dict[str: str], db: AsyncSession) -> Optional[UserFullSchema]:
     """
     :param user_data: dict with only one field, example -> {id: some_uuid}
     :param db: AsyncSession
@@ -36,8 +38,6 @@ async def get_user(user_data: dict, db: AsyncSession) -> Optional[UserFullSchema
     field_value = user_data[field_name]
 
     stmt = select(User).where(getattr(User, field_name) == field_value)
-
-    # stmt = select(User).where(User.id == user_id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     return UserFullSchema.model_validate(user) if user else None
@@ -49,6 +49,7 @@ async def authenticate_user(
         db: AsyncSession
 ) -> Optional[UserFullSchema]:
     """ Authenticate user """
+    print(email, password)
     user = await get_user({'email': email}, db)
     if not user:
         return None
@@ -70,7 +71,7 @@ def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None) -> s
         expire = datetime.now(timezone.utc) + timedelta(minutes=15) # default 15 min
 
     to_encode.update({"exp": expire})
-    to_encode["jti"] = str(uuid4())
+    to_encode["jti"] = str(uuid.uuid4())
     encoded_jwt = jwt.encode(
         to_encode,
         settings.JWT_TOKEN_SECRET_KEY,
@@ -139,12 +140,10 @@ async def decode_and_validate_token(
     if jti_in_db:
         raise_credentials_exception()
 
-
     try:
         user_id = uuid.UUID(payload.get("sub"))
     except (ValueError, TypeError):
         raise_credentials_exception()
-
 
     # Validate token type
     if payload.get("type") != token_type:
@@ -173,6 +172,8 @@ async def blacklist_jwt_token(
         access_token: Optional[str],
         refresh_token: Optional[str],
 ):
+    blacklisted_tokens = []
+
     for token in (access_token, refresh_token):
         if not token:
             continue
@@ -192,13 +193,13 @@ async def blacklist_jwt_token(
         except (PyJWTError, ValueError, TypeError):
             continue
 
-        stmt = select(BlacklistedToken).where(BlacklistedToken.jti == jti)
-        result = await db.execute(stmt)
-        jti_in_db = result.scalar_one_or_none()
-        if not jti_in_db:
-            db.add(BlacklistedToken(jti=jti))
+        blacklisted_tokens.append({'jti': jti})
 
-    await db.commit()
+    if blacklisted_tokens:
+        stmt = insert(BlacklistedToken).values(blacklisted_tokens)
+        stmt = stmt.on_conflict_do_nothing(index_elements=["jti"])
+        await db.execute(stmt)
+        await db.commit()
 
 
 def set_refresh_token_cookie(response: Response, refresh_token: str):
