@@ -22,8 +22,22 @@ from utils import verify_password
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-async def get_user(user_id: str, db: AsyncSession) -> Optional[UserFullSchema]:
-    stmt = select(User).where(User.id == user_id)
+async def get_user(user_data: dict, db: AsyncSession) -> Optional[UserFullSchema]:
+    """
+    :param user_data: dict with only one field, example -> {id: some_uuid}
+    :param db: AsyncSession
+    :return: UserFullSchema or None
+    """
+    if not isinstance(user_data, dict) or len(user_data) != 1:
+        raise ValueError("'user_data' must be a dict with only one field.")
+
+
+    field_name = next(iter(user_data))
+    field_value = user_data[field_name]
+
+    stmt = select(User).where(getattr(User, field_name) == field_value)
+
+    # stmt = select(User).where(User.id == user_id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     return UserFullSchema.model_validate(user) if user else None
@@ -35,7 +49,7 @@ async def authenticate_user(
         db: AsyncSession
 ) -> Optional[UserFullSchema]:
     """ Authenticate user """
-    user = await get_user(email, db)
+    user = await get_user({'email': email}, db)
     if not user:
         return None
 
@@ -173,8 +187,13 @@ async def get_current_user(
 
     payload = decode_jwt_token(token)
     payload = await verify_jwt_payload(payload, token_type='access', db=db)
-    user_id = payload.get("sub")
-    current_user = await get_user(user_id, db)
+
+    try:
+        user_id = uuid.UUID(payload.get("sub"))
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=401, detail="Invalid token subject")
+
+    current_user = await get_user({'id': user_id}, db)
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

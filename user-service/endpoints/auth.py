@@ -8,14 +8,14 @@ from db import async_get_db
 from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
 from schemas.error_responses import ErrorResponse
 from utils.auth import authenticate_user, oauth2_scheme, \
-    get_current_active_user, blacklist_jwt_token, obtain_token_pair, decode_jwt_token
+    get_current_active_user, blacklist_jwt_token, obtain_token_pair, decode_jwt_token, verify_jwt_payload
 from utils.create_user import create_user
 
 router = APIRouter(prefix="/auth", tags=["users"])
 
 
 @router.post('/register', response_model=UserReadSchema, status_code=201)
-async def register_user(
+async def register(
         user_data: UserCreateSchema,
         db: Annotated[AsyncSession, Depends(async_get_db)]
 ):
@@ -60,6 +60,10 @@ async def login(
             detail="Inactive user.",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    print()
+    print(user.id)
+    print()
 
     # Create tokens
     access_token, refresh_token = obtain_token_pair(sub=user.id)
@@ -106,10 +110,11 @@ async def logout(
 async def refresh(
         response: Response,
         db: Annotated[AsyncSession, Depends(async_get_db)],
-        refresh_token: Optional[str] = Cookie(default='refresh_token'),
+        refresh_token: Optional[str] = Cookie(default=None),
 ) -> TokenReadSchema:
 
     payload = decode_jwt_token(refresh_token)
+    payload = await verify_jwt_payload(payload, token_type="refresh_token", db=db)
     user_id = payload["sub"]
     token_type = payload["type"]
 
