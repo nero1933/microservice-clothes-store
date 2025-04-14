@@ -62,7 +62,7 @@ async def login(
         )
 
     # Create tokens
-    access_token, refresh_token = obtain_token_pair(sub=user.email)
+    access_token, refresh_token = obtain_token_pair(sub=user.id)
 
     # Set 'refresh_token' to cookie
     max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds
@@ -110,8 +110,8 @@ async def refresh(
 ) -> TokenReadSchema:
 
     payload = decode_jwt_token(refresh_token)
-    user_email = payload["email"]
-    token_type = payload["token_type"]
+    user_id = payload["sub"]
+    token_type = payload["type"]
 
     if token_type != "refresh":
         raise HTTPException(
@@ -127,7 +127,7 @@ async def refresh(
     )
 
     # Create new tokens
-    access_token, refresh_token = obtain_token_pair(sub=user_email)
+    access_token, refresh_token = obtain_token_pair(sub=user_id)
 
     # Renew 'refresh_token' in cookies
     response.delete_cookie(key="refresh_token")

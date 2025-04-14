@@ -22,8 +22,8 @@ from utils import verify_password
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
 
-async def get_user(email: str, db: AsyncSession) -> Optional[UserFullSchema]:
-    stmt = select(User).where(User.email == email)
+async def get_user(user_id: str, db: AsyncSession) -> Optional[UserFullSchema]:
+    stmt = select(User).where(User.id == user_id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
     return UserFullSchema.model_validate(user) if user else None
@@ -122,7 +122,7 @@ async def verify_jwt_payload(payload, token_type: str, db: AsyncSession) -> dict
     if jti_in_db:
         raise credentials_exception
 
-    # Checks email
+    # Checks sub
     if payload.get("sub") is None:
         raise credentials_exception
 
@@ -173,8 +173,8 @@ async def get_current_user(
 
     payload = decode_jwt_token(token)
     payload = await verify_jwt_payload(payload, token_type='access', db=db)
-    email = payload.get("sub")
-    current_user = await get_user(email, db)
+    user_id = payload.get("sub")
+    current_user = await get_user(user_id, db)
     if not current_user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -182,34 +182,6 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
     )
     return current_user
-
-    # credentials_exception = HTTPException(
-    #     status_code=status.HTTP_401_UNAUTHORIZED,
-    #     detail="Could not validate credentials.",
-    #     headers={"WWW-Authenticate": "Bearer"},
-    # )
-    # try:
-    #     payload = jwt.decode(
-    #         token,
-    #         settings.JWT_TOKEN_SECRET_KEY,
-    #         algorithms=[settings.JWT_TOKEN_ALGORITHM]
-    #     )
-    #     if payload.get("type") != "access":
-    #         raise credentials_exception
-    #
-    #     email = payload.get("sub")
-    #     if email is None:
-    #         raise credentials_exception
-    #
-    #     token_data = TokenDataSchema(email=email)
-    # except InvalidTokenError:
-    #     raise credentials_exception
-    #
-    # user = await get_user(email=token_data.email, db=db)
-    # if user is None:
-    #     raise credentials_exception
-    #
-    # return user
 
 
 async def get_current_active_user(

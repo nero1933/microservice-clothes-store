@@ -32,4 +32,5 @@ class UserInDBSchema(UserReadSchema):
 
 
 class UserFullSchema(UserInDBSchema):
+    id: str
     is_admin: bool
