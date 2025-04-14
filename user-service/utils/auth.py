@@ -6,7 +6,7 @@ import jwt
 from datetime import datetime, timezone, timedelta
 from typing import Annotated, Optional
 
-from fastapi import Depends, status, HTTPException, Cookie
+from fastapi import Depends, status, HTTPException, Response
 from fastapi.security import OAuth2PasswordBearer
 from jwt.exceptions import PyJWTError
 from sqlalchemy.future import select
@@ -95,56 +95,77 @@ def obtain_token_pair(sub: str):
     return access_token, refresh_token
 
 
-def decode_jwt_token(token: str) -> dict:
+def raise_credentials_exception():
+    """ Function for raising the credential exception. """
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+async def decode_and_validate_token(
+        token: str,
+        token_type: str,
+        db: AsyncSession,
+) -> dict:
+    """
+    :return: payload
+    """
+
+    # Decode token
     try:
         payload = jwt.decode(
             token,
             settings.JWT_TOKEN_SECRET_KEY,
             algorithms=[settings.JWT_TOKEN_ALGORITHM]
         )
-        return payload
     except PyJWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_credentials_exception()
 
-
-async def verify_jwt_payload(payload, token_type: str, db: AsyncSession) -> dict:
-    """ Verify JWT token's payload. """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials.",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
-    # Check jti
     jti_str = payload.get("jti")
     if not jti_str:
-        raise credentials_exception
+        raise_credentials_exception()
 
     try:
         jti = uuid.UUID(jti_str)
     except ValueError:
-        raise credentials_exception
+        raise_credentials_exception()
 
     stmt = select(BlacklistedToken).where(BlacklistedToken.jti == jti)
     result = await db.execute(stmt)
     jti_in_db = result.scalar_one_or_none()
 
     if jti_in_db:
-        raise credentials_exception
+        raise_credentials_exception()
 
-    # Checks sub
-    if payload.get("sub") is None:
-        raise credentials_exception
 
-    # Checks type
+    try:
+        user_id = uuid.UUID(payload.get("sub"))
+    except (ValueError, TypeError):
+        raise_credentials_exception()
+
+
+    # Validate token type
     if payload.get("type") != token_type:
-        raise credentials_exception
+        raise_credentials_exception()
 
     return payload
+
+
+async def get_user_from_token(token: str, token_type: str, db: AsyncSession) -> UserFullSchema:
+    """
+    Extracts user from token
+    and returns UserFullSchema.
+    """
+
+    payload = await decode_and_validate_token(token, token_type, db)
+    user_id = payload['sub']
+    user = await get_user({'id': user_id}, db)
+    if not user:
+        raise_credentials_exception()
+
+    return user
 
 
 async def blacklist_jwt_token(
@@ -180,27 +201,25 @@ async def blacklist_jwt_token(
     await db.commit()
 
 
+def set_refresh_token_cookie(response: Response, refresh_token: str):
+    """ Sets 'refresh_token' in cookies """
+    max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        # secure=True,
+        samesite="strict",
+        path="/",
+        max_age=max_age,
+    )
+
+
 async def get_current_user(
-        token: Annotated[str, Depends(oauth2_scheme)],
+        access_token: Annotated[str, Depends(oauth2_scheme)],
         db: Annotated[AsyncSession, Depends(async_get_db)]
 ) -> UserFullSchema:
-
-    payload = decode_jwt_token(token)
-    payload = await verify_jwt_payload(payload, token_type='access', db=db)
-
-    try:
-        user_id = uuid.UUID(payload.get("sub"))
-    except (ValueError, TypeError):
-        raise HTTPException(status_code=401, detail="Invalid token subject")
-
-    current_user = await get_user({'id': user_id}, db)
-    if not current_user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials.",
-            headers={"WWW-Authenticate": "Bearer"},
-    )
-    return current_user
+    return await get_user_from_token(access_token, token_type='access', db=db)
 
 
 async def get_current_active_user(
@@ -217,7 +236,7 @@ async def get_current_active_user(
 
 
 def require_user_field(field_name: str):
-    """ Use to check for 'is_admin' is True. """
+    """ Use to check if 'is_admin', 'is_active'... is True. """
     def decorator(func):
         @wraps(func)
         async def wrapper(current_user: UserFullSchema, *args, **kwargs):

@@ -8,7 +8,8 @@ from db import async_get_db
 from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
 from schemas.error_responses import ErrorResponse
 from utils.auth import authenticate_user, oauth2_scheme, \
-    get_current_active_user, blacklist_jwt_token, obtain_token_pair, decode_jwt_token, verify_jwt_payload
+    get_current_active_user, blacklist_jwt_token, obtain_token_pair, decode_and_validate_token, \
+    set_refresh_token_cookie, raise_credentials_exception
 from utils.create_user import create_user
 
 router = APIRouter(prefix="/auth", tags=["users"])
@@ -48,11 +49,7 @@ async def login(
 ) -> TokenReadSchema:
     user = await authenticate_user(form_data.username, form_data.password, db)
     if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        raise_credentials_exception()
 
     if not user.is_active:
         raise HTTPException(
@@ -61,24 +58,11 @@ async def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    print()
-    print(user.id)
-    print()
-
     # Create tokens
     access_token, refresh_token = obtain_token_pair(sub=user.id)
 
     # Set 'refresh_token' to cookie
-    max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        # secure=True,
-        samesite="strict",
-        path="/",
-        max_age=max_age,
-    )
+    set_refresh_token_cookie(response, refresh_token)
 
     # Return 'access_token' in response body
     return TokenReadSchema(access_token=access_token, token_type="bearer")
@@ -113,16 +97,8 @@ async def refresh(
         refresh_token: Optional[str] = Cookie(default=None),
 ) -> TokenReadSchema:
 
-    payload = decode_jwt_token(refresh_token)
-    payload = await verify_jwt_payload(payload, token_type="refresh_token", db=db)
-    user_id = payload["sub"]
-    token_type = payload["type"]
-
-    if token_type != "refresh":
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token type not supported.",
-        )
+    # Decode and validate payload
+    payload = await decode_and_validate_token(refresh_token, token_type="refresh", db=db)
 
     # Blacklist old 'refresh_token'
     await blacklist_jwt_token(
@@ -132,19 +108,11 @@ async def refresh(
     )
 
     # Create new tokens
-    access_token, refresh_token = obtain_token_pair(sub=user_id)
+    access_token, refresh_token = obtain_token_pair(sub=payload["sub"])
 
     # Renew 'refresh_token' in cookies
     response.delete_cookie(key="refresh_token")
-    response.set_cookie(
-        key="refresh_token",
-        value=refresh_token,
-        httponly=True,
-        # secure=True,
-        samesite="strict",
-        path="/",
-        max_age=60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS # 7 days in seconds,
-    )
+    set_refresh_token_cookie(response, refresh_token)
 
     # Return new 'access_token' in response body
     return TokenReadSchema(access_token=access_token, token_type="bearer")
