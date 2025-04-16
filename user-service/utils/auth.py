@@ -134,6 +134,7 @@ async def decode_and_validate_token(
 	stmt = select(BlacklistedToken).where(BlacklistedToken.jti == jti)
 	result = await db.execute(stmt)
 	jti_in_db = result.scalar_one_or_none()
+	print('jti_in_db', jti_in_db, '\n')
 
 	if jti_in_db:
 		raise CredentialsException()

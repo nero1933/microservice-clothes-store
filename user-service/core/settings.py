@@ -5,6 +5,7 @@ class Settings(BaseSettings):
 	DB_USER: str
 	DB_PASSWORD: str
 	DB_HOST: str
+	DB_TEST_HOST: str
 	DB_NAME: str
 	JWT_TOKEN_SECRET_KEY: str
 	JWT_TOKEN_ALGORITHM: str

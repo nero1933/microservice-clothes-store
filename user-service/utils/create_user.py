@@ -27,8 +27,9 @@ async def create_user(
 			is_admin=is_admin,
 		)
 		await db.execute(stmt)
+		await db.commit()
 
-		stmt = select(User).where(email=user_data.email)
+		stmt = select(User).where(User.email == user_data.email)
 		user = await db.execute(stmt)
 		user = user.scalar_one_or_none()
 		return user

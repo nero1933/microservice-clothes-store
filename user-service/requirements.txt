@@ -1,7 +1,11 @@
 fastapi[all]
-sqlalchemy
+sqlalchemy[asyncio]
 psycopg2-binary
 asyncpg
 alembic
 passlib[argon2]
 pyjwt
+pytest
+pytest-asyncio
+anyio
+httpx

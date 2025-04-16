@@ -8,9 +8,11 @@ services:
       - ./user-service:/user-service
     depends_on:
       - user-db
+      - test-db
     environment:
       - DB_NAME=${USER_DB_NAME}
       - DB_HOST=user-db
+      - DB_TEST_HOST=test-db
       - DB_USER=${USER_DB_USER}
       - DB_PASSWORD=${USER_DB_PASSWORD}
       - JWT_TOKEN_SECRET_KEY=${JWT_TOKEN_SECRET_KEY}
@@ -39,8 +41,22 @@ services:
     networks:
       - ecommerce-net
 
-#volumes:
-#  postgres-data:
+  test-db:
+    container_name: test-db
+    image: postgres:17.4-alpine
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_DB=${USER_DB_NAME}
+      - POSTGRES_USER=${USER_DB_USER}
+      - POSTGRES_PASSWORD=${USER_DB_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}'" ]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    networks:
+      - ecommerce-net
 
 networks:
   ecommerce-net:
