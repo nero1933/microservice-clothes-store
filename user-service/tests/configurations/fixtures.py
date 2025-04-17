@@ -1,9 +1,7 @@
-from http import cookies
-
 import pytest_asyncio
 
 from models import User
-from utils import get_password_hash
+from utils import password as p
 
 
 @pytest_asyncio.fixture(loop_scope="function")
@@ -20,7 +18,7 @@ async def user_data():
 async def user(session, user_data):
 	user = User(
 		email=user_data['email'],
-		hashed_password=get_password_hash(user_data['password']),
+		hashed_password=p.get_password_hash(user_data['password']),
 		first_name="Test",
 		last_name="User",
 		is_active=True,

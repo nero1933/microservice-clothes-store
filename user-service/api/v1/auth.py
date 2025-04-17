@@ -4,36 +4,39 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dependencies.db import get_async_session
-from dependencies.services import get_user_service
+from dependencies.services import get_register_service, get_login_service
 from exceptions.exception_factory import ExceptionDocFactory
-from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
+from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema, UserBaseSchema
 from services.auth import authenticate_user, oauth2_scheme, get_current_active_user, \
 	blacklist_jwt_token, obtain_token_pair, decode_and_validate_token, set_refresh_token_cookie
-from services.users import UserService
+from services.users import RegisterService, LoginService
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException, \
-	RefreshTokenMissingException, NotAuthenticatedException, EmailExistsException
+	RefreshTokenMissingException, NotAuthenticatedException, EmailExistsException, BadRequestException
 
 router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
 
 @router.post(
 	'/register',
-	response_model=UserReadSchema,
+	response_model=UserBaseSchema,
 	responses={
-		400: ExceptionDocFactory.from_exception(EmailExistsException, description='Email Error'),
+		400: ExceptionDocFactory.from_multiple_exceptions(
+			(EmailExistsException, BadRequestException),
+			description='Email Error'
+		),
 	},
 	status_code=201
 )
 async def register(
 		user_data: UserCreateSchema,
-		user_service: UserService = Depends(get_user_service),
+		register_user_service: RegisterService = Depends(get_register_service),
 ):
-	user = await user_service.create_user(
+	await register_user_service.create_user(
 		user_data=user_data,
 		is_active=True,
 		is_admin=False
 	)
-	return UserReadSchema.model_validate(user)
+	return UserBaseSchema(**user_data.model_dump())
 
 
 @router.post(
@@ -48,16 +51,17 @@ async def register(
 async def login(
 		response: Response,
 		form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-		db: Annotated[AsyncSession, Depends(get_async_session)],
+		login_service: LoginService = Depends(get_login_service),
 ) -> TokenReadSchema:
 	""" Logs in user. """
 
-	user = await authenticate_user(form_data.username, form_data.password, db)
+	user = await login_service.authenticate(form_data.username, form_data.password)
 	if not user:
 		raise CredentialsException()
 
 	if not user.is_active:
 		raise InactiveUserException()
+
 
 	# Create tokens
 	access_token, refresh_token = obtain_token_pair(sub=str(user.id))

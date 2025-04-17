@@ -1,2 +1,2 @@
 from .users import Base, User
-from .tokens import BlacklistedToken
+from .tokens import TokenBlacklist

@@ -4,7 +4,7 @@ from sqlalchemy import select
 
 from core import settings
 from models import User, BlacklistedToken
-from utils import get_password_hash
+from utils import password as p
 
 
 @pytest.mark.asyncio
@@ -36,7 +36,7 @@ async def test_register(client, user_data, session):
 async def test_register_duplicate_email(client, session, user_data):
 	new_user = User(
 		email=user_data['email'],
-		hashed_password=get_password_hash(user_data['password']),
+		hashed_password=p.get_password_hash(user_data['password']),
 		first_name="Test",
 		last_name="User",
 		is_active=True,

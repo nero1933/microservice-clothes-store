@@ -1,4 +1,5 @@
 import uvicorn
+from loggers import log_sql_query
 from fastapi import FastAPI
 
 from api.v1.auth import router as users_router

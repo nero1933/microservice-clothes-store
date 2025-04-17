@@ -1,29 +1,32 @@
+from typing import Optional
+
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from crud.users import UserCRUD
-from exceptions.custom_exceptions import EmailExistsException
+from crud.base_crud import M
+from crud.users import RetrieveCreateUserCRUD, RetrieveUserCRUD
+from exceptions.custom_exceptions import EmailExistsException, BadRequestException
 from models.users import User
 from schemas import UserCreateSchema, UserInDBSchema
-from utils import get_password_hash
+from utils import password as p
 
 
-class UserService(UserCRUD):
-	model = User
+class RegisterService(RetrieveCreateUserCRUD):
 
-	def __init__(self, db: AsyncSession) -> None:
+	def __init__(self, db: AsyncSession):
 		super().__init__(db)
 
 
 	async def create_user(
 			self,
 			user_data: UserCreateSchema,
-			is_active: bool = True,
+			is_active: bool = False,
 			is_admin: bool = False,
-	) -> User:
+	) -> None:
 		""" Creates a new user. """
 
-		hashed_password = get_password_hash(user_data.password)
+		hashed_password = p.get_password_hash(user_data.password)
 
 		try:
 			validated_data = UserInDBSchema(
@@ -33,10 +36,9 @@ class UserService(UserCRUD):
 				is_admin=is_admin,
 			)
 
-			print('validated_data', validated_data)
-
-			user = await self.create(validated_data)
-			return user
+			user_created = await self.create(validated_data)
+			if not user_created:
+				raise BadRequestException()
 
 		except IntegrityError as e:
 			await self.db.rollback()
@@ -46,52 +48,47 @@ class UserService(UserCRUD):
 
 			raise e
 
-
-	async def create_superuser(self, user_data: UserCreateSchema) -> User:
-		""" Creates a new superuser. """
-
-		return await self.create_user(user_data, is_active=True, is_admin=True)
-
+	# async def create_superuser(self, user_data: UserCreateSchema) -> User:
+	# 	""" Creates a new superuser. """
+	#
+	# 	return await self.create_user(user_data, is_active=True, is_admin=True)
 
 
+class LoginService(RetrieveUserCRUD):
 
-# async def create_user(
-# 		user_data: UserCreateSchema,
-# 		db: AsyncSession,
-# 		is_active: bool = False,
-# 		is_admin: bool = False
-# ) -> User:
-# 	""" Create a new user. """
-#
-# 	hashed_password = get_password_hash(user_data.password)
-#
-# 	try:
-# 		stmt = insert(User).values(
-# 			email=user_data.email,
-# 			hashed_password=hashed_password,
-# 			first_name=user_data.first_name,
-# 			last_name=user_data.last_name,
-# 			is_active=is_active,
-# 			is_admin=is_admin,
-# 		)
-# 		await db.execute(stmt)
-# 		await db.commit()
-#
-# 		stmt = select(User).where(User.email == user_data.email)
-# 		user = await db.execute(stmt)
-# 		user = user.scalar_one_or_none()
-# 		return user
-#
-# 	except IntegrityError as e:
-# 		await db.rollback()
-# 		if 'unique constraint' in str(e.orig).lower():
-# 			if 'email' in str(e.orig):
-# 				raise ValueError("User with this email already exists")
-#
-# 		raise e
-#
-#
-# async def create_superuser(user_data: UserCreateSchema, db: AsyncSession):
-# 	""" Create a new superuser. """
-#
-# 	return await create_user(user_data, db, is_active=True, is_admin=True)
+	def __init__(self, db: AsyncSession):
+		super().__init__(db)
+
+	async def get_single_object(self, value) -> Optional[M]:
+		""" Get user with only 'email', 'hashed_password', 'is_active' fields """
+
+		stmt = (
+			select(
+				self.model.id,
+				self.model.email,
+				self.model.hashed_password,
+				self.model.is_active
+			)
+			.where(self.model.email == value)
+		)
+		result = await self.db.execute(stmt)
+		return result.first()
+
+
+	async def authenticate(
+			self,
+			email: str,
+			password: str,
+	) -> Optional[User]:
+		""" Authenticate user """
+
+		user = await self.retrieve(email)
+		if not user:
+			return None
+
+		if not p.verify_password(password, user.hashed_password):
+			return None
+
+		return user
+
+

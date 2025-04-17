@@ -5,6 +5,17 @@ class HTTPCustomException(HTTPException):
 	detail: str
 
 
+class BadRequestException(HTTPCustomException):
+	detail = "Bad Request"
+
+	def __init__(self):
+		super().__init__(
+			status_code=status.HTTP_400_BAD_REQUEST,
+			detail=self.detail,
+			headers={"WWW-Authenticate": "Bearer"},
+		)
+
+
 class EmailExistsException(HTTPCustomException):
 	detail = "User with this email already exists"
 

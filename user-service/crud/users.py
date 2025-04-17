@@ -1,6 +1,20 @@
-from crud.base_crud import RetrieveModelCRUD, CreateModelCRUD, UpdateModelCRUD
+from crud.base_crud import RetrieveModelCRUD, CreateModelCRUD, LookupModelCRUD
 from models import User
+from schemas import UserInDBSchema
 
 
-class UserCRUD(RetrieveModelCRUD, CreateModelCRUD, UpdateModelCRUD):
+class UserCRUD(LookupModelCRUD):
 	model = User
+	lookup_field = "email"
+
+
+class RetrieveUserCRUD(RetrieveModelCRUD,
+					   UserCRUD):
+	pass
+
+
+class RetrieveCreateUserCRUD(RetrieveModelCRUD,
+							 CreateModelCRUD[UserInDBSchema],
+							 UserCRUD):
+	pass
+

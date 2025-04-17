@@ -15,10 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import settings
 from dependencies.db import get_async_session
-from models.tokens import BlacklistedToken
+from models.tokens import TokenBlacklist
 from schemas import UserFullSchema
 from models.users import User
-from utils import verify_password
+from utils import password as p
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
@@ -56,14 +56,15 @@ async def authenticate_user(
 	if not user:
 		return None
 
-	if not verify_password(password, user.hashed_password):
+	if not p.verify_password(password, user.hashed_password):
 		return None
 
 	return user
 
 
 def create_jwt_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
-	""" Creates JWT token. """
+	""" Creates JWT token """
+
 	to_encode = data.copy()
 
 	if expires_delta:
@@ -134,7 +135,6 @@ async def decode_and_validate_token(
 	stmt = select(BlacklistedToken).where(BlacklistedToken.jti == jti)
 	result = await db.execute(stmt)
 	jti_in_db = result.scalar_one_or_none()
-	print('jti_in_db', jti_in_db, '\n')
 
 	if jti_in_db:
 		raise CredentialsException()
