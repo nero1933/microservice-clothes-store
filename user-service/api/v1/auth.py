@@ -3,16 +3,17 @@ from fastapi import APIRouter, Depends, Response, Cookie
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from db import async_get_db
+from dependencies.db import get_async_session
+from dependencies.services import get_user_service
 from exceptions.exception_factory import ExceptionDocFactory
 from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
-from utils.auth import authenticate_user, oauth2_scheme, get_current_active_user, \
+from services.auth import authenticate_user, oauth2_scheme, get_current_active_user, \
 	blacklist_jwt_token, obtain_token_pair, decode_and_validate_token, set_refresh_token_cookie
-from utils.create_user import create_user
+from services.users import UserService
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException, \
 	RefreshTokenMissingException, NotAuthenticatedException, EmailExistsException
 
-router = APIRouter()
+router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
 
 @router.post(
@@ -25,13 +26,14 @@ router = APIRouter()
 )
 async def register(
 		user_data: UserCreateSchema,
-		db: Annotated[AsyncSession, Depends(async_get_db)]
+		user_service: UserService = Depends(get_user_service),
 ):
-	try:
-		user = await create_user(db=db, user_data=user_data, is_active=True, is_admin=False)
-		return user
-	except ValueError:
-		raise EmailExistsException()
+	user = await user_service.create_user(
+		user_data=user_data,
+		is_active=True,
+		is_admin=False
+	)
+	return UserReadSchema.model_validate(user)
 
 
 @router.post(
@@ -46,7 +48,7 @@ async def register(
 async def login(
 		response: Response,
 		form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-		db: Annotated[AsyncSession, Depends(async_get_db)],
+		db: Annotated[AsyncSession, Depends(get_async_session)],
 ) -> TokenReadSchema:
 	""" Logs in user. """
 
@@ -79,7 +81,7 @@ async def login(
 )
 async def logout(
 		response: Response,
-		db: Annotated[AsyncSession, Depends(async_get_db)],
+		db: Annotated[AsyncSession, Depends(get_async_session)],
 		access_token: Annotated[str, Depends(oauth2_scheme)],
 		refresh_token: Optional[str] = Cookie(default=None),
 ):
@@ -110,7 +112,7 @@ async def logout(
 )
 async def refresh(
 		response: Response,
-		db: Annotated[AsyncSession, Depends(async_get_db)],
+		db: Annotated[AsyncSession, Depends(get_async_session)],
 		refresh_token: Optional[str] = Cookie(default=None),
 ) -> TokenReadSchema:
 	""" Refreshes a pair of tokens. """

@@ -4,7 +4,7 @@ from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
 from core import settings
-from db import async_get_db
+from dependencies.db import get_async_session
 from main import app
 from models import Base
 
@@ -43,7 +43,7 @@ async def session():
 
 @pytest_asyncio.fixture(loop_scope="function")
 async def client(session):
-	app.dependency_overrides[async_get_db] = lambda: session
+	app.dependency_overrides[get_async_session] = lambda: session
 
 	async with AsyncClient(
 			transport=ASGITransport(app=app), base_url="http://test"

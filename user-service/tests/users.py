@@ -21,7 +21,13 @@ async def test_no_access_for_unauthenticated(client):
 
 
 @pytest.mark.asyncio
-async def test_register(client, user_data):
+async def test_register(client, user_data, session):
+
+	stmt = select(User)
+	res = await session.execute(stmt)
+	users = res.scalars().all()
+	print(users)
+
 	response = await client.post("/api/v1/auth/register", json=user_data)
 	assert response.status_code == 201
 

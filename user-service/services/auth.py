@@ -14,7 +14,7 @@ from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core import settings
-from db import async_get_db
+from dependencies.db import get_async_session
 from models.tokens import BlacklistedToken
 from schemas import UserFullSchema
 from models.users import User
@@ -166,7 +166,7 @@ async def get_user_from_token(token: str, token_type: str, db: AsyncSession) -> 
 
 
 async def blacklist_jwt_token(
-		db: Annotated[AsyncSession, Depends(async_get_db)],
+		db: Annotated[AsyncSession, Depends(get_async_session)],
 		access_token: Optional[str],
 		refresh_token: Optional[str],
 ) -> None:
@@ -219,7 +219,7 @@ def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
 
 async def get_current_user(
 		access_token: Annotated[str, Depends(oauth2_scheme)],
-		db: Annotated[AsyncSession, Depends(async_get_db)]
+		db: Annotated[AsyncSession, Depends(get_async_session)]
 ) -> UserFullSchema:
 	""" Retrieves current user. """
 

@@ -12,6 +12,8 @@ class UserBaseSchema(BaseModel):
 
 
 class UserCreateSchema(UserBaseSchema):
+	""" Validates input from api to create user """
+
 	password: str
 
 	@field_validator('password')
@@ -27,10 +29,13 @@ class UserReadSchema(UserBaseSchema):
 	created_at: datetime
 
 
-class UserInDBSchema(UserReadSchema):
+class UserInDBSchema(UserBaseSchema):
+	""" Validates data before creating a user instance """
 	hashed_password: str
+	is_active: bool
+	is_admin: bool
 
 
 class UserFullSchema(UserInDBSchema):
 	id: UUID
-	is_admin: bool
+	created_at: datetime
