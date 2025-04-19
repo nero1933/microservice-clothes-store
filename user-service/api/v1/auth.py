@@ -7,7 +7,7 @@ from dependencies.db import get_async_session
 from dependencies.services import get_register_service, get_login_service
 from exceptions.exception_factory import ExceptionDocFactory
 from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema, UserBaseSchema
-from services.auth import authenticate_user, oauth2_scheme, get_current_active_user, \
+from services.auth import oauth2_scheme, get_current_active_user, \
 	blacklist_jwt_token, obtain_token_pair, decode_and_validate_token, set_refresh_token_cookie
 from services.users import RegisterService, LoginService
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException, \
@@ -18,7 +18,7 @@ router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
 @router.post(
 	'/register',
-	response_model=UserBaseSchema,
+	response_model=UserReadSchema,
 	responses={
 		400: ExceptionDocFactory.from_multiple_exceptions(
 			(EmailExistsException, BadRequestException),
@@ -31,12 +31,12 @@ async def register(
 		user_data: UserCreateSchema,
 		register_service: RegisterService = Depends(get_register_service),
 ):
-	await register_service.create_user(
+	user = await register_service.create_user(
 		user_data=user_data,
 		is_active=True,
 		is_admin=False
 	)
-	return UserBaseSchema(**user_data.model_dump())
+	return UserReadSchema.model_validate(user)
 
 
 @router.post(

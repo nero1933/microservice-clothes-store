@@ -12,10 +12,10 @@ from schemas import UserCreateSchema, UserInDBSchema
 from utils import password as p
 
 
-class RegisterService(mixins.CreateModelMixin,
+class RegisterService(mixins.CreateModelMixin[User, UserInDBSchema],
 					  BaseCRUD):
 	model = User
-	lookup_field = "email"
+	# lookup_field = "email"
 
 	def __init__(self, db: AsyncSession):
 		super().__init__(db)
@@ -39,7 +39,12 @@ class RegisterService(mixins.CreateModelMixin,
 				is_admin=is_admin,
 			)
 
-			return await self.create(validated_data)
+			return await self.create(
+				validated_data,
+				return_attributes=[
+					'email', 'first_name', 'last_name', 'is_active', 'created_at'
+				]
+			)
 
 		except IntegrityError as e:
 			await self.db.rollback()
@@ -54,10 +59,11 @@ class RegisterService(mixins.CreateModelMixin,
 	# 	return await self.create_user(user_data, is_active=True, is_admin=True)
 
 
-class LoginService(RetrieveUserCRUD):
+class LoginService:
+	model = User
 
 	def __init__(self, db: AsyncSession):
-		super().__init__(db)
+		self.db = db
 
 	async def get_object(self, value) -> Optional[M]:
 		""" Get user with only 'email', 'hashed_password', 'is_active' fields """
@@ -82,7 +88,7 @@ class LoginService(RetrieveUserCRUD):
 	) -> Optional[User]:
 		""" Authenticate user """
 
-		user = await self.retrieve(email)
+		user = await self.get_object(email)
 		if not user:
 			return None
 
@@ -91,4 +97,9 @@ class LoginService(RetrieveUserCRUD):
 
 		return user
 
+
+# class UserMeService(mixins.RetrieveModelMixin[User],
+# 					BaseCRUD):
+# 	model = User
+# 	lookup_field = "id"
 

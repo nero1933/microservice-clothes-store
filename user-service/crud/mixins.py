@@ -28,9 +28,9 @@ class CreateModelMixin(Generic[M, C]):
 		await self.db.commit()
 
 		if return_attributes:
-			await self.refresh(obj, attribute_names=return_attributes)
+			await self.db.refresh(obj, attribute_names=return_attributes)
 		else:
-			await self.refresh(obj)
+			await self.db.refresh(obj)
 
 		return obj
 
@@ -53,9 +53,9 @@ class UpdateModelMixin(Generic[M, U]):
 		await self.db.commit()
 
 		if return_attributes:
-			await self.refresh(obj, attribute_names=return_attributes)
+			await self.db.refresh(obj, attribute_names=return_attributes)
 		else:
-			await self.refresh(obj)
+			await self.db.refresh(obj)
 
 		return obj
 

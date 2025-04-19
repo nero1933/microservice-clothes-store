@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 from core import settings
 from dependencies.db import get_async_session
 from main import app
-from models import Base
+from db import Base
 
 DB_USER = settings.DB_USER
 DB_PASSWORD = settings.DB_PASSWORD

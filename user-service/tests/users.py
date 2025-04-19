@@ -3,7 +3,7 @@ import pytest
 from sqlalchemy import select
 
 from core import settings
-from models import User, BlacklistedToken
+from models import User, TokenBlacklist
 from utils import password as p
 
 
@@ -137,7 +137,7 @@ async def test_blacklist_token_when_refresh(auth_client, session):
 		algorithms=[settings.JWT_TOKEN_ALGORITHM]
 	).get('jti')
 
-	stmt = select(BlacklistedToken).where(BlacklistedToken.jti == old_refresh_token_jti)
+	stmt = select(TokenBlacklist).where(TokenBlacklist.jti == old_refresh_token_jti)
 	result = await session.execute(stmt)
 	token = result.scalar_one_or_none()
 	assert token is not None
@@ -178,8 +178,8 @@ async def test_blacklist_token_when_logout(auth_client, session):
 		algorithms=[settings.JWT_TOKEN_ALGORITHM]
 	).get('jti')
 
-	stmt = select(BlacklistedToken) \
-		.where(BlacklistedToken.jti.in_((old_access_token_jti, old_refresh_token_jti)))
+	stmt = select(TokenBlacklist) \
+		.where(TokenBlacklist.jti.in_((old_access_token_jti, old_refresh_token_jti)))
 	result = await session.execute(stmt)
 	tokens = result.scalars().all()
 	assert len(tokens) == 2
