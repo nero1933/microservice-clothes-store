@@ -4,15 +4,18 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from crud.base_crud import M
-from crud.users import RetrieveCreateUserCRUD, RetrieveUserCRUD
-from exceptions.custom_exceptions import EmailExistsException, BadRequestException
+from crud import mixins
+from crud.base_crud import M, BaseCRUD
+from exceptions.custom_exceptions import EmailExistsException
 from models.users import User
 from schemas import UserCreateSchema, UserInDBSchema
 from utils import password as p
 
 
-class RegisterService(RetrieveCreateUserCRUD):
+class RegisterService(mixins.CreateModelMixin,
+					  BaseCRUD):
+	model = User
+	lookup_field = "email"
 
 	def __init__(self, db: AsyncSession):
 		super().__init__(db)
@@ -21,9 +24,9 @@ class RegisterService(RetrieveCreateUserCRUD):
 	async def create_user(
 			self,
 			user_data: UserCreateSchema,
-			is_active: bool = False,
+			is_active: bool = True,
 			is_admin: bool = False,
-	) -> None:
+	) -> User:
 		""" Creates a new user. """
 
 		hashed_password = p.get_password_hash(user_data.password)
@@ -36,15 +39,12 @@ class RegisterService(RetrieveCreateUserCRUD):
 				is_admin=is_admin,
 			)
 
-			user_created = await self.create(validated_data)
-			if not user_created:
-				raise BadRequestException()
+			return await self.create(validated_data)
 
 		except IntegrityError as e:
 			await self.db.rollback()
-			if 'unique constraint' in str(e.orig).lower():
-				if 'email' in str(e.orig):
-					raise EmailExistsException()
+			if 'unique constraint' in str(e.orig).lower() and 'email' in str(e.orig):
+				raise EmailExistsException()
 
 			raise e
 
@@ -59,7 +59,7 @@ class LoginService(RetrieveUserCRUD):
 	def __init__(self, db: AsyncSession):
 		super().__init__(db)
 
-	async def get_single_object(self, value) -> Optional[M]:
+	async def get_object(self, value) -> Optional[M]:
 		""" Get user with only 'email', 'hashed_password', 'is_active' fields """
 
 		stmt = (

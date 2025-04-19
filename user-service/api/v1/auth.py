@@ -29,9 +29,9 @@ router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 )
 async def register(
 		user_data: UserCreateSchema,
-		register_user_service: RegisterService = Depends(get_register_service),
+		register_service: RegisterService = Depends(get_register_service),
 ):
-	await register_user_service.create_user(
+	await register_service.create_user(
 		user_data=user_data,
 		is_active=True,
 		is_admin=False
