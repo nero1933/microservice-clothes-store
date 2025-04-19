@@ -1,2 +1,2 @@
-from .conftest import client, session
+from .conftest import client, db
 from .fixtures import *

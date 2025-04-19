@@ -1,12 +1,13 @@
+import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import NullPool
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 
 from core import settings
 from dependencies.db import get_async_session
 from main import app
-from db import Base
+import models
 
 DB_USER = settings.DB_USER
 DB_PASSWORD = settings.DB_PASSWORD
@@ -20,16 +21,19 @@ TEST_DATABASE_URL = (
 )
 
 test_engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool, echo=False)
+async_session_maker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 
-@pytest_asyncio.fixture(loop_scope="session", autouse=True)
-async def prepare_database():
+@pytest_asyncio.fixture(loop_scope="session")
+async def test_prepare_database():
+	print("Preparing database")
 	async with test_engine.begin() as conn:
-		await conn.run_sync(Base.metadata.create_all)
+		await conn.run_sync(models.Base.metadata.drop_all)
+		await conn.run_sync(models.Base.metadata.create_all)
 
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def session():
+async def db():
 	async with test_engine.begin() as conn:
 
 		session = AsyncSession(bind=conn, expire_on_commit=False)
@@ -42,8 +46,8 @@ async def session():
 
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def client(session):
-	app.dependency_overrides[get_async_session] = lambda: session
+async def client(db):
+	app.dependency_overrides[get_async_session] = lambda: db
 
 	async with AsyncClient(
 			transport=ASGITransport(app=app), base_url="http://test"

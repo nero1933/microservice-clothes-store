@@ -1,14 +1,20 @@
 from typing import Annotated, Optional
+
+import jwt
 from fastapi import APIRouter, Depends, Response, Cookie
 from fastapi.security import OAuth2PasswordRequestForm
+from jwt import ExpiredSignatureError
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from dependencies.db import get_async_session
-from dependencies.services import get_register_service, get_login_service
+from dependencies.services import get_register_service, get_login_service, get_base_token_manager, \
+	get_token_blacklist_manager, get_pair_token_manager, get_access_token_manager
 from exceptions.exception_factory import ExceptionDocFactory
-from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema, UserBaseSchema
-from services.auth import oauth2_scheme, get_current_active_user, \
-	blacklist_jwt_token, obtain_token_pair, decode_and_validate_token, set_refresh_token_cookie
+from models import User
+from schemas import UserCreateSchema, UserReadSchema, TokenReadSchema, UserFullSchema
+from services.tokens import JWTBaseManager, TokenBlacklistManager, JWTPairManager, JWTAccessManager
+from services.auth import oauth2_scheme
 from services.users import RegisterService, LoginService
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException, \
 	RefreshTokenMissingException, NotAuthenticatedException, EmailExistsException, BadRequestException
@@ -52,6 +58,7 @@ async def login(
 		response: Response,
 		form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 		login_service: LoginService = Depends(get_login_service),
+		base_token_manager: JWTBaseManager = Depends(get_base_token_manager),
 ) -> TokenReadSchema:
 	""" Logs in user. """
 
@@ -62,12 +69,11 @@ async def login(
 	if not user.is_active:
 		raise InactiveUserException()
 
-
 	# Create tokens
-	access_token, refresh_token = obtain_token_pair(sub=str(user.id))
+	access_token, refresh_token = base_token_manager.obtain_token_pair(sub=str(user.id))
 
 	# Set 'refresh_token' to cookie
-	set_refresh_token_cookie(response, refresh_token)
+	base_token_manager.set_refresh_token_cookie(response, refresh_token)
 
 	# Return 'access_token' in response body
 	return TokenReadSchema(access_token=access_token, token_type="bearer")
@@ -85,20 +91,25 @@ async def login(
 )
 async def logout(
 		response: Response,
-		db: Annotated[AsyncSession, Depends(get_async_session)],
-		access_token: Annotated[str, Depends(oauth2_scheme)],
-		refresh_token: Optional[str] = Cookie(default=None),
+		pair_token_manager: JWTPairManager = Depends(get_pair_token_manager),
+		token_blacklist_manager: TokenBlacklistManager = Depends(get_token_blacklist_manager),
 ):
 	""" Logouts user, blacklists tokens. """
 
-	if not refresh_token:
+	if not pair_token_manager.refresh_token:
 		raise RefreshTokenMissingException()
 
-	await blacklist_jwt_token(
-		db=db,
-		access_token=access_token,
-		refresh_token=refresh_token
-	)
+	try:
+		# 'validate_jti=True' will check if the 'jti' is in TokenBlacklist,
+		# which is redundant because the .add() method already handles the IntegrityError
+		# when attempting to insert a duplicate 'jti' into the database.
+		payload = await pair_token_manager.decode_and_validate_token(
+			'refresh_token', validate_jti=False
+		)
+		await token_blacklist_manager.add(payload.get('jti'))
+	except ValueError:
+		pass
+
 	response.delete_cookie(key="refresh_token")
 	return {"message": "Logged out successfully."}
 
@@ -116,30 +127,29 @@ async def logout(
 )
 async def refresh(
 		response: Response,
-		db: Annotated[AsyncSession, Depends(get_async_session)],
-		refresh_token: Optional[str] = Cookie(default=None),
+		pair_token_manager: JWTPairManager = Depends(get_pair_token_manager),
+		token_blacklist_manager: TokenBlacklistManager = Depends(get_token_blacklist_manager),
 ) -> TokenReadSchema:
 	""" Refreshes a pair of tokens. """
 
-	if not refresh_token:
+	if not pair_token_manager.refresh_token:
 		raise RefreshTokenMissingException()
 
-	# Decode and validate payload
-	payload = await decode_and_validate_token(refresh_token, token_type="refresh", db=db)
+	try:
+		# Decode and validate payload of 'refresh_token'
+		payload = await pair_token_manager.decode_and_validate_token('refresh_token')
+		# Blacklist old 'refresh_token'
+		await token_blacklist_manager.add(payload.get('jti'))
+	except ValueError:
+		raise CredentialsException()
 
-	# Blacklist old 'refresh_token'
-	await blacklist_jwt_token(
-		db=db,
-		access_token=None,
-		refresh_token=refresh_token
-	)
 
 	# Create new tokens
-	access_token, refresh_token = obtain_token_pair(sub=payload["sub"])
+	access_token, refresh_token = pair_token_manager.obtain_token_pair(sub=payload["sub"])
 
-	# Renew 'refresh_token' in cookies
+	# Renew 'refresh_token' in cookie
 	response.delete_cookie(key="refresh_token")
-	set_refresh_token_cookie(response, refresh_token)
+	pair_token_manager.set_refresh_token_cookie(response, refresh_token)
 
 	# Return new 'access_token' in response body
 	return TokenReadSchema(access_token=access_token, token_type="bearer")
@@ -147,7 +157,7 @@ async def refresh(
 
 @router.get(
 	"/me",
-	response_model=UserReadSchema,
+	# response_model=UserReadSchema,
 	responses={
 		401: ExceptionDocFactory.from_multiple_exceptions(
 			(NotAuthenticatedException, CredentialsException),
@@ -158,8 +168,28 @@ async def refresh(
 	status_code=200
 )
 async def read_user_me(
-		current_user: Annotated[UserFullSchema, Depends(get_current_active_user)]
+		access_token_manager: JWTAccessManager = Depends(get_access_token_manager),
+		db: AsyncSession = Depends(get_async_session),
 ):
 	""" Returns current user information """
 
+	try:
+		user_id = await access_token_manager.get_user_id('access_token')
+	except ExpiredSignatureError:
+		pass
+	except ValueError:
+		raise NotAuthenticatedException()
+
+	stmt = (
+		select(
+			User.email,
+			User.first_name,
+			User.last_name,
+			User.is_active,
+			User.created_at,
+		)
+		.where(User.id == user_id)
+	)
+	result = await db.execute(stmt)
+	current_user = result.first()
 	return UserReadSchema.model_validate(current_user)

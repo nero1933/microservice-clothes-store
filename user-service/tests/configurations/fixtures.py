@@ -15,7 +15,7 @@ async def user_data():
 
 
 @pytest_asyncio.fixture(loop_scope="function")
-async def user(session, user_data):
+async def user(db, user_data):
 	user = User(
 		email=user_data['email'],
 		hashed_password=p.get_password_hash(user_data['password']),
@@ -24,8 +24,8 @@ async def user(session, user_data):
 		is_active=True,
 		is_admin=False
 	)
-	session.add(user)
-	await session.commit()
+	db.add(user)
+	await db.commit()
 	setattr(user, 'password', user_data['password'])
 	return user
 
