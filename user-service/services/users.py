@@ -4,15 +4,15 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from crud import mixins
-from crud.base_crud import M, BaseCRUD
+from core.crud import mixins
+from core.crud.base_crud import M, BaseCRUD
 from exceptions.custom_exceptions import EmailExistsException
-from models.users import User
-from schemas import UserCreateSchema, UserInDBSchema
+from models import User
+import schemas
 from utils import password as p
 
 
-class RegisterService(mixins.CreateModelMixin[User, UserInDBSchema],
+class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
 					  BaseCRUD):
 	model = User
 	# lookup_field = "email"
@@ -23,7 +23,7 @@ class RegisterService(mixins.CreateModelMixin[User, UserInDBSchema],
 
 	async def create_user(
 			self,
-			user_data: UserCreateSchema,
+			user_data: schemas.UserCreate,
 			is_active: bool = True,
 			is_admin: bool = False,
 	) -> User:
@@ -32,7 +32,7 @@ class RegisterService(mixins.CreateModelMixin[User, UserInDBSchema],
 		hashed_password = p.get_password_hash(user_data.password)
 
 		try:
-			validated_data = UserInDBSchema(
+			validated_data = schemas.UserInDB(
 				**user_data.model_dump(exclude={"password"}),
 				hashed_password=hashed_password,
 				is_active=is_active,

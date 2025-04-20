@@ -12,9 +12,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from core import settings
-from loggers import default_logger
+# from loggers import default_logger
 from models import TokenBlacklist
-
 
 TokenPair = namedtuple("TokenPair", ["access_token", "refresh_token"])
 

@@ -2,7 +2,7 @@ from typing import TypeVar, Any, Optional, Generic
 
 from pydantic import BaseModel
 
-from db import Base
+from core.db import Base
 
 M = TypeVar('M', bound=Base) # SQLAlchemy model
 C = TypeVar('C', bound=BaseModel) # Create schema

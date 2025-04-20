@@ -1,9 +1,54 @@
 services:
+
+  # ---------- AUTH-SERVICE ---------- #
+  auth-service:
+    container_name: auth-service
+    build: ./auth-service
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./auth-service:/auth-service
+    depends_on:
+      - auth-db
+      - test-db
+    environment:
+      - DB_NAME=${AUTH_DB_NAME}
+      - DB_HOST=auth-db
+      - DB_TEST_HOST=test-db
+      - DB_USER=${AUTH_DB_USER}
+      - DB_PASSWORD=${AUTH_DB_PASSWORD}
+      - JWT_TOKEN_SECRET_KEY=${JWT_TOKEN_SECRET_KEY}
+      - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
+    networks:
+      - ecommerce-net
+
+  auth-db:
+    container_name: auth-db
+    image: postgres:17.4-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./user-service/data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${AUTH_DB_NAME}
+      - POSTGRES_USER=${AUTH_DB_USER}
+      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}'" ]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    networks:
+      - ecommerce-net
+
+  # ---------- USER-SERVICE ---------- #
   user-service:
     container_name: user-service
     build: ./user-service
     ports:
-      - "8000:8000"
+      - "8001:8000"
     volumes:
       - ./user-service:/user-service
     depends_on:
@@ -15,10 +60,6 @@ services:
       - DB_TEST_HOST=test-db
       - DB_USER=${USER_DB_USER}
       - DB_PASSWORD=${USER_DB_PASSWORD}
-      - JWT_TOKEN_SECRET_KEY=${JWT_TOKEN_SECRET_KEY}
-      - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
-      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
-      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
     networks:
       - ecommerce-net
 
@@ -26,7 +67,7 @@ services:
     container_name: user-db
     image: postgres:17.4-alpine
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./user-service/data/postgres:/var/lib/postgresql/data
     environment:
@@ -41,11 +82,13 @@ services:
     networks:
       - ecommerce-net
 
+
+  # ---------- TEST-DATABASE ---------- #
   test-db:
     container_name: test-db
     image: postgres:17.4-alpine
     ports:
-      - "5433:5432"
+      - "5434:5432"
     environment:
       - POSTGRES_DB=${USER_DB_NAME}
       - POSTGRES_USER=${USER_DB_USER}

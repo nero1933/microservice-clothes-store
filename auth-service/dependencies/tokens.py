@@ -1,24 +1,13 @@
 from typing import Annotated, Optional
-
 from fastapi import Depends, Cookie
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
-from dependencies.db import get_async_session
-from services.auth import oauth2_scheme
+
+from core.db.db_dependency import get_async_session
 from services.tokens import TokenBlacklistManager, JWTAccessManager, JWTBaseManager, \
 	JWTPairManager
-from services.users import RegisterService, LoginService
 
-
-def get_register_service(
-		db: AsyncSession = Depends(get_async_session),
-) -> RegisterService:
-	return RegisterService(db)
-
-
-def get_login_service(
-		db: AsyncSession = Depends(get_async_session),
-) -> LoginService:
-	return LoginService(db)
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")
 
 
 def get_base_token_manager(

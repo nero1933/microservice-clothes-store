@@ -3,7 +3,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator, EmailStr
 
 
-class UserBaseSchema(BaseModel):
+class UserBase(BaseModel):
 	email: EmailStr
 	first_name: str
 	last_name: str
@@ -11,7 +11,7 @@ class UserBaseSchema(BaseModel):
 	model_config = ConfigDict(from_attributes=True)
 
 
-class UserCreateSchema(UserBaseSchema):
+class UserCreate(UserBase):
 	""" Validates input from api to create user """
 
 	password: str
@@ -24,18 +24,18 @@ class UserCreateSchema(UserBaseSchema):
 		return value
 
 
-class UserReadSchema(UserBaseSchema):
+class UserRead(UserBase):
 	is_active: bool
 	created_at: datetime
 
 
-class UserInDBSchema(UserBaseSchema):
+class UserInDB(UserBase):
 	""" Validates data before creating a user instance """
 	hashed_password: str
 	is_active: bool
 	is_admin: bool
 
 
-class UserFullSchema(UserInDBSchema):
+class UserFull(UserInDB):
 	id: UUID
 	created_at: datetime
