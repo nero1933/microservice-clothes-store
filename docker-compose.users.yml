@@ -1,0 +1,67 @@
+services:
+  users-service:
+    container_name: users-service
+    build: users-service
+    command: ["python", "main.py"]
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./users-service:/users-service
+    environment:
+      - DB_NAME=${USERS_DB_NAME}
+      - DB_SOCKET=users-db:5432
+      - DB_TEST_SOCKET=test-db:5432
+      - DB_USER=${USERS_DB_USER}
+      - DB_PASSWORD=${USERS_DB_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
+    depends_on:
+      users-db:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+  users-worker:
+    container_name: users-worker
+    build: users-service
+    command: ["python", "worker.py"]
+    volumes:
+      - ./users-service:/users-service
+    environment:
+      - DB_NAME=${USERS_DB_NAME}
+      - DB_SOCKET=users-db:5432
+      - DB_TEST_SOCKET=test-db:5432
+      - DB_USER=${USERS_DB_USER}
+      - DB_PASSWORD=${USERS_DB_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
+    depends_on:
+      users-db:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+  users-db:
+    container_name: users-db
+    image: postgres:17.4-alpine
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./users-service/data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${USERS_DB_NAME}
+      - POSTGRES_USER=${USERS_DB_USER}
+      - POSTGRES_PASSWORD=${USERS_DB_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USERS_DB_USER} -d ${USERS_DB_NAME}'" ]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    networks:
+      - ecommerce-net
+
+networks:
+  ecommerce-net:
+    external: true

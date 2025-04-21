@@ -1,0 +1,50 @@
+services:
+  auth-service:
+    container_name: auth-service
+    build: auth-service
+    command: ["python", "main.py"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./auth-service:/auth-service
+    environment:
+      - DB_NAME=${AUTH_DB_NAME}
+      - DB_SOCKET=auth-db:5432
+      - DB_TEST_SOCKET=test-db:5432
+      - DB_USER=${AUTH_DB_USER}
+      - DB_PASSWORD=${AUTH_DB_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
+      - JWT_TOKEN_SECRET_KEY=${JWT_TOKEN_SECRET_KEY}
+      - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
+      - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+  auth-db:
+    container_name: auth-db
+    image: postgres:17.4-alpine
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./users-service/data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${AUTH_DB_NAME}
+      - POSTGRES_USER=${AUTH_DB_USER}
+      - POSTGRES_PASSWORD=${AUTH_DB_PASSWORD}
+    healthcheck:
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${AUTH_DB_USER} -d ${AUTH_DB_NAME}'" ]
+      interval: 3s
+      timeout: 3s
+      retries: 3
+    networks:
+      - ecommerce-net
+
+networks:
+  ecommerce-net:
+    external: true
