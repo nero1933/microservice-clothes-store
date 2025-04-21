@@ -13,19 +13,24 @@ services:
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
     volumes:
       - ./rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - ecommerce-net
+    healthcheck:
+      test: [ "CMD", "rabbitmq-diagnostics", "ping" ]
+      interval: 3s
+      timeout: 3s
+      retries: 3
 
   # ---------- AUTH-SERVICE ---------- #
 
   auth-service:
     container_name: auth-service
     build: ./auth-service
+    command: ["python", "main.py"]
     ports:
       - "8000:8000"
     volumes:
       - ./auth-service:/auth-service
-    depends_on:
-      - auth-db
-      - test-db
     environment:
       - DB_NAME=${AUTH_DB_NAME}
       - DB_SOCKET=auth-db:5432
@@ -39,6 +44,13 @@ services:
       - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
       - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
+    depends_on:
+      auth-db:
+        condition: service_healthy
+      test-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - ecommerce-net
 
@@ -48,7 +60,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./user-service/data/postgres:/var/lib/postgresql/data
+      - ./users-service/data/postgres:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=${AUTH_DB_NAME}
       - POSTGRES_USER=${AUTH_DB_USER}
@@ -61,41 +73,71 @@ services:
     networks:
       - ecommerce-net
 
-  # ---------- USER-SERVICE ---------- #
+  # ---------- USERS-SERVICE ---------- #
 
-  user-service:
-    container_name: user-service
-    build: ./user-service
+  users-service:
+    container_name: users-service
+    build: users-service
+    command: ["python", "main.py"]
     ports:
       - "8001:8000"
     volumes:
-      - ./user-service:/user-service
-    depends_on:
-      - user-db
-      - test-db
+      - ./users-service:/users-service
     environment:
-      - DB_NAME=${USER_DB_NAME}
-      - DB_SOCKET=user-db:5432
+      - DB_NAME=${USERS_DB_NAME}
+      - DB_SOCKET=users-db:5432
       - DB_TEST_SOCKET=test-db:5432
-      - DB_USER=${USER_DB_USER}
-      - DB_PASSWORD=${USER_DB_PASSWORD}
+      - DB_USER=${USERS_DB_USER}
+      - DB_PASSWORD=${USERS_DB_PASSWORD}
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_SOCKET=rabbitmq:5672
+    depends_on:
+      user-db:
+        condition: service_healthy
+      test-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     networks:
       - ecommerce-net
 
-  user-db:
-    container_name: user-db
+  users-worker:
+    container_name: users-worker
+    build: users-service
+    command: ["python", "worker.py"]
+    volumes:
+      - ./users-service:/users-service
+    environment:
+      - DB_NAME=${USERS_DB_NAME}
+      - DB_SOCKET=users-db:5432
+      - DB_TEST_SOCKET=test-db:5432
+      - DB_USER=${USERS_DB_USER}
+      - DB_PASSWORD=${USERS_DB_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
+    depends_on:
+      user-db:
+        condition: service_healthy
+      test-db:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce-net
+
+  users-db:
+    container_name: users-db
     image: postgres:17.4-alpine
     ports:
       - "5433:5432"
     volumes:
-      - ./user-service/data/postgres:/var/lib/postgresql/data
+      - ./users-service/data/postgres:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${USER_DB_NAME}
-      - POSTGRES_USER=${USER_DB_USER}
-      - POSTGRES_PASSWORD=${USER_DB_PASSWORD}
+      - POSTGRES_DB=${USERS_DB_NAME}
+      - POSTGRES_USER=${USERS_DB_USER}
+      - POSTGRES_PASSWORD=${USERS_DB_PASSWORD}
     healthcheck:
       test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}'" ]
       interval: 3s
@@ -113,11 +155,11 @@ services:
     ports:
       - "5434:5432"
     environment:
-      - POSTGRES_DB=${USER_DB_NAME}
-      - POSTGRES_USER=${USER_DB_USER}
-      - POSTGRES_PASSWORD=${USER_DB_PASSWORD}
+      - POSTGRES_DB=${USERS_DB_NAME}
+      - POSTGRES_USER=${USERS_DB_USER}
+      - POSTGRES_PASSWORD=${USERS_DB_PASSWORD}
     healthcheck:
-      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USER_DB_USER} -d ${USER_DB_NAME}'" ]
+      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USERS_DB_USER} -d ${USERS_DB_NAME}'" ]
       interval: 3s
       timeout: 3s
       retries: 3
@@ -126,4 +168,4 @@ services:
 
 networks:
   ecommerce-net:
-    driver: bridge
+    external: true

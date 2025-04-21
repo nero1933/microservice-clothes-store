@@ -1,3 +1,4 @@
+import logging
 from typing import Optional
 
 from sqlalchemy import select
@@ -7,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.crud import mixins
 from core.crud.base_crud import M, BaseCRUD
 from exceptions.custom_exceptions import EmailExistsException
+from loggers import default_logger
 from models import User
 import schemas
 from utils import password as p
@@ -80,22 +82,37 @@ class LoginService:
 		result = await self.db.execute(stmt)
 		return result.first()
 
+	@staticmethod
+	def check_permission(user: User) -> bool:
+		return user.is_active
 
 	async def authenticate(
 			self,
 			email: str,
 			password: str,
-	) -> Optional[User]:
-		""" Authenticate user """
+	) -> Optional[dict[str: str, str: bool]]:
+		"""
+		Authenticate user
+		Returns {"user_id": "some uuid4 string", "permission": "True"}
+		"""
 
+		default_logger.info(f'[.] Try to authenticate user: {email}')
+
+		data = {'user_id': '', 'permission': True}
 		user = await self.get_object(email)
+
 		if not user:
 			return None
 
 		if not p.verify_password(password, user.hashed_password):
 			return None
 
-		return user
+		permission = self.check_permission(user)
+		if not permission:
+			data['permission'] = False
+
+		data['user_id'] = str(user.id) # UUID to str
+		return data
 
 
 # class UserMeService(mixins.RetrieveModelMixin[User],

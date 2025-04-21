@@ -1,3 +1,4 @@
+import json
 from typing import Annotated
 
 from fastapi import APIRouter, Response, Depends
@@ -27,22 +28,23 @@ async def login(
 		response: Response,
 		form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
 		auth_service: AuthService = Depends(get_auth_service),
-		base_token_manager: JWTBaseService = Depends(get_base_token_service),
+		base_token_service: JWTBaseService = Depends(get_base_token_service),
 ) -> schemas.TokenRead:
 	""" Logs in user. """
 
-	user = await auth_service.authenticate(form_data.username, form_data.password)
-	if not user:
+	user = await auth_service.login(form_data.username, form_data.password)
+	user_id = user.get('user_id')
+	if not user_id:
 		raise CredentialsException()
 
-	if not user.is_active:
+	if not user.get('permission'):
 		raise InactiveUserException()
 
 	# Create tokens
-	access_token, refresh_token = base_token_manager.obtain_token_pair(sub=str(user.id))
+	access_token, refresh_token = base_token_service.obtain_token_pair(sub=user_id)
 
 	# Set 'refresh_token' to cookie
-	base_token_manager.set_refresh_token_cookie(response, refresh_token)
+	base_token_service.set_refresh_token_cookie(response, refresh_token)
 
 	# Return 'access_token' in response body
 	return schemas.TokenRead(access_token=access_token, token_type="bearer")
@@ -60,22 +62,22 @@ async def login(
 )
 async def logout(
 		response: Response,
-		pair_token_manager: JWTPairService = Depends(get_pair_token_service),
-		token_blacklist_manager: TokenBlacklistService = Depends(get_token_blacklist_service),
+		pair_token_service: JWTPairService = Depends(get_pair_token_service),
+		token_blacklist_service: TokenBlacklistService = Depends(get_token_blacklist_service),
 ):
 	""" Logouts user, blacklists tokens. """
 
-	if not pair_token_manager.refresh_token:
+	if not pair_token_service.refresh_token:
 		raise RefreshTokenMissingException()
 
 	try:
 		# 'validate_jti=True' will check if the 'jti' is in TokenBlacklist,
 		# which is redundant because the .add() method already handles the IntegrityError
 		# when attempting to insert a duplicate 'jti' into the database.
-		payload = await pair_token_manager.decode_and_validate_token(
+		payload = await pair_token_service.decode_and_validate_token(
 			'refresh_token', validate_jti=False
 		)
-		await token_blacklist_manager.add(payload.get('jti'))
+		await token_blacklist_service.add(payload.get('jti'))
 	except ValueError:
 		pass
 
@@ -96,29 +98,29 @@ async def logout(
 )
 async def refresh(
 		response: Response,
-		pair_token_manager: JWTPairService = Depends(get_pair_token_service),
-		token_blacklist_manager: TokenBlacklistService = Depends(get_token_blacklist_service),
+		pair_token_service: JWTPairService = Depends(get_pair_token_service),
+		token_blacklist_service: TokenBlacklistService = Depends(get_token_blacklist_service),
 ) -> schemas.TokenRead:
 	""" Refreshes a pair of tokens. """
 
-	if not pair_token_manager.refresh_token:
+	if not pair_token_service.refresh_token:
 		raise RefreshTokenMissingException()
 
 	try:
 		# Decode and validate payload of 'refresh_token'
-		payload = await pair_token_manager.decode_and_validate_token('refresh_token')
+		payload = await pair_token_service.decode_and_validate_token('refresh_token')
 		# Blacklist old 'refresh_token'
-		await token_blacklist_manager.add(payload.get('jti'))
+		await token_blacklist_service.add(payload.get('jti'))
 	except ValueError:
 		raise CredentialsException()
 
 
 	# Create new tokens
-	access_token, refresh_token = pair_token_manager.obtain_token_pair(sub=payload["sub"])
+	access_token, refresh_token = pair_token_service.obtain_token_pair(sub=payload["sub"])
 
 	# Renew 'refresh_token' in cookie
 	response.delete_cookie(key="refresh_token")
-	pair_token_manager.set_refresh_token_cookie(response, refresh_token)
+	pair_token_service.set_refresh_token_cookie(response, refresh_token)
 
 	# Return new 'access_token' in response body
 	return schemas.TokenRead(access_token=access_token, token_type="bearer")
