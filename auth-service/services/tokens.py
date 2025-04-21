@@ -18,7 +18,7 @@ from models import TokenBlacklist
 TokenPair = namedtuple("TokenPair", ["access_token", "refresh_token"])
 
 
-class JWTBaseManager:
+class JWTBaseService:
 	ALLOWED_TOKEN_TYPES = ['access_token', 'refresh_token']
 	JWT_TOKEN_SECRET_KEY = settings.JWT_TOKEN_SECRET_KEY
 	JWT_TOKEN_ALGORITHM = settings.JWT_TOKEN_ALGORITHM
@@ -119,7 +119,7 @@ class JWTBaseManager:
 			max_age=max_age,
 		)
 
-class JWTAccessManager(JWTBaseManager):
+class JWTAccessService(JWTBaseService):
 	def __init__(
 			self,
 			db: AsyncSession,
@@ -202,7 +202,7 @@ class JWTAccessManager(JWTBaseManager):
 		return user_id
 
 
-class JWTPairManager(JWTAccessManager):
+class JWTPairService(JWTAccessService):
 	def __init__(
 			self,
 			db: AsyncSession,
@@ -214,7 +214,7 @@ class JWTPairManager(JWTAccessManager):
 		self.refresh_token = refresh_token
 
 
-class TokenBlacklistManager:
+class TokenBlacklistService:
 	def __init__(self, db: AsyncSession):
 		self.db = db
 

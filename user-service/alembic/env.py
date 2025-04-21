@@ -7,17 +7,10 @@ from alembic import context
 
 from core import settings
 
-DB_USER = settings.DB_USER
-DB_PASSWORD = settings.DB_PASSWORD
-DB_HOST = settings.DB_HOST
-DB_NAME = settings.DB_NAME
-
-DATABASE_URL = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:5432/{DB_NAME}"
-
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
-config.set_main_option('sqlalchemy.url', DATABASE_URL)
+config.set_main_option('sqlalchemy.url', settings.alembic_db_url)
 
 # Interpret the config file for Python loggers.
 # This line sets up loggers basically.
@@ -28,6 +21,7 @@ if config.config_file_name is not None:
 # for 'autogenerate' support
 # from myapp import mymodel
 # target_metadata = mymodel.Base.metadata
+from core.db import Base
 from models import * # import all models!
 
 target_metadata = Base.metadata

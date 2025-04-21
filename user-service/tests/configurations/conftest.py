@@ -8,18 +8,7 @@ from core.db.db_dependency import get_async_session
 from main import app
 import models
 
-DB_USER = settings.DB_USER
-DB_PASSWORD = settings.DB_PASSWORD
-DB_TEST_HOST = settings.DB_TEST_HOST
-DB_NAME = settings.DB_NAME
-
-# Test database URL
-TEST_DATABASE_URL = (
-	f"postgresql+asyncpg://{settings.DB_USER}:{settings.DB_PASSWORD}@"
-	f"{settings.DB_TEST_HOST}:5432/{settings.DB_NAME}"
-)
-
-test_engine = create_async_engine(TEST_DATABASE_URL, poolclass=NullPool, echo=False)
+test_engine = create_async_engine(settings.test_db_url, poolclass=NullPool, echo=False)
 async_session_maker = async_sessionmaker(test_engine, expire_on_commit=False)
 
 

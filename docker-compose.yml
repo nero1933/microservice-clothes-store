@@ -1,6 +1,21 @@
 services:
 
+  # ---------- RABBITMQ ---------- #
+
+  rabbitmq:
+    container_name: rabbitmq
+    image: rabbitmq:4.1.0-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    volumes:
+      - ./rabbitmq_data:/var/lib/rabbitmq
+
   # ---------- AUTH-SERVICE ---------- #
+
   auth-service:
     container_name: auth-service
     build: ./auth-service
@@ -13,10 +28,13 @@ services:
       - test-db
     environment:
       - DB_NAME=${AUTH_DB_NAME}
-      - DB_HOST=auth-db
-      - DB_TEST_HOST=test-db
+      - DB_SOCKET=auth-db:5432
+      - DB_TEST_SOCKET=test-db:5432
       - DB_USER=${AUTH_DB_USER}
       - DB_PASSWORD=${AUTH_DB_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
       - JWT_TOKEN_SECRET_KEY=${JWT_TOKEN_SECRET_KEY}
       - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
@@ -44,6 +62,7 @@ services:
       - ecommerce-net
 
   # ---------- USER-SERVICE ---------- #
+
   user-service:
     container_name: user-service
     build: ./user-service
@@ -56,10 +75,13 @@ services:
       - test-db
     environment:
       - DB_NAME=${USER_DB_NAME}
-      - DB_HOST=user-db
-      - DB_TEST_HOST=test-db
+      - DB_SOCKET=user-db:5432
+      - DB_TEST_SOCKET=test-db:5432
       - DB_USER=${USER_DB_USER}
       - DB_PASSWORD=${USER_DB_PASSWORD}
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
     networks:
       - ecommerce-net
 
@@ -84,6 +106,7 @@ services:
 
 
   # ---------- TEST-DATABASE ---------- #
+  
   test-db:
     container_name: test-db
     image: postgres:17.4-alpine
