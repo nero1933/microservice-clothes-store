@@ -1,21 +1,21 @@
 from contextlib import asynccontextmanager
 
-import aio_pika
 import uvicorn
-# from loggers import log_sql_query
 from fastapi import FastAPI
 
 from api.v1 import auth_router
-from core import settings
+from messaging.connection_manager import rabbitmq
 
 
-# async def lifespan(app: FastAPI):
-# 	await rpc.connect()
-# 	yield
-# 	await rpc.connection.close()
-#
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+	await rabbitmq.connect()
+	yield
+	await rabbitmq.disconnect()
 
-app = FastAPI()
+
+app = FastAPI(lifespan=lifespan)
+
 app.include_router(auth_router)
 
 if __name__ == "__main__":

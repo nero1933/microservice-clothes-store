@@ -1,23 +1,28 @@
 import json
 from typing import Dict, Union
 
-from .rpc import RPCClient
+from core.db.db_config import engine
+from loggers import default_logger
+from .rpc import rpc_client
 
 
 class UsersClient:
 	@staticmethod
-	async def get_auth_data(username: str, password: str) -> Dict[str, Union[str, bool]]:
+	async def get_auth_data(username: str, password: str) -> Dict[str, str]:
 		"""
 		Sends 'username' & 'password' to users service to authenticate user.
 
 		Returns a dictionary with:
 		- 'user_id': a string representing the user ID (UUID).
-		- 'permission': a boolean representing whether the user has permission (True/False).
+		   or
+		- 'error': a string representing the error message.
 
-		Response example: {'user_id': 'some uuid4 str', 'permission': True}
+		Response example: {'user_id': 'some uuid4 str'}
 		"""
 
-		rpc = await RPCClient().connect()
+		client = await rpc_client.connect()
 		data = {'username': username, 'password': password}
-		response = await rpc.call(data, routing_key="rpc.users.get_auth_data")
-		return json.loads(response)
+		response = await client.call(data, routing_key="rpc.users.get_auth_data")
+		result = json.loads(response)
+		default_logger.info(f'[✓] Response from users-service: -> {result}')
+		return result

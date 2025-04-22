@@ -1,4 +1,4 @@
-import logging
+import uuid
 from typing import Optional, Dict, Union
 
 from sqlalchemy import select
@@ -90,28 +90,31 @@ class LoginService:
 			self,
 			email: str,
 			password: str,
-	) -> Optional[Dict[str, Union[str, bool]]]:
+	) -> Dict[str, str]:
 		"""
-		Authenticate user
-		Returns {"user_id": "some uuid4 string", "permission": "True"}
+		Authenticates user
+
+		Returns {"user_id": "some uuid4 string"} or {'error': 'error message'}
 		"""
 
 		default_logger.info(f'[.] Try to authenticate user: {email}')
-
-		data = {'user_id': '', 'permission': True}
+		data = {}
 		user = await self.get_object(email)
 
 		if not user:
-			return None
+			data.setdefault('error', 'User not found')
+			return data
 
 		if not p.verify_password(password, user.hashed_password):
-			return None
+			data.setdefault('error', 'Wrong password')
+			return data
 
 		permission = self.check_permission(user)
 		if not permission:
-			data['permission'] = False
+			data.setdefault('error', 'No permission')
+			return data
 
-		data['user_id'] = str(user.id) # UUID to str
+		data.setdefault('user_id', str(user.id)) # UUID to str
 		return data
 
 

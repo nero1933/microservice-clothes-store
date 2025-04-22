@@ -10,6 +10,7 @@ from dependencies import get_base_token_service, get_pair_token_service, \
 	get_token_blacklist_service, get_auth_service
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException, NotAuthenticatedException, \
 	RefreshTokenMissingException
+from loggers import default_logger
 from services import JWTBaseService, JWTPairService, TokenBlacklistService, AuthService
 
 auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
@@ -32,13 +33,15 @@ async def login(
 ) -> schemas.TokenRead:
 	""" Logs in user. """
 
-	user = await auth_service.authenticate(form_data.username, form_data.password)
-	user_id = user.get('user_id')
-	if not user_id:
-		raise CredentialsException()
+	auth_data = await auth_service.authenticate(form_data.username, form_data.password)
+	error = auth_data.get('error')
+	if error:
+		if 'No permission' in error:
+			raise InactiveUserException()
+		else:
+			raise CredentialsException()
 
-	if not user.get('permission'):
-		raise InactiveUserException()
+	user_id = auth_data.get('user_id')
 
 	# Create tokens
 	access_token, refresh_token = base_token_service.obtain_token_pair(sub=user_id)

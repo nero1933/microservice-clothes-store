@@ -1,3 +1,5 @@
+from .db_config import engine
+
 from .db_config import AsyncSessionLocal
 
 

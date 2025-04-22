@@ -11,9 +11,10 @@ class AuthService:
 		Sends 'username' & 'password' to users service to authenticate user.
 
 		Returns a dictionary with:
-        - 'user_id': a string representing the user ID (UUID).
-        - 'permission': a boolean representing whether the user has permission (True/False).
+		- 'user_id': a string representing the user ID (UUID).
+		   or
+		- 'error': a string representing the error message.
 
-		Response example: {'user_id': 'some uuid4 str', 'permission': True}
+		Response example: {'user_id': 'some uuid4 str'}
 		"""
 		return await UsersClient.get_auth_data(username, password)
