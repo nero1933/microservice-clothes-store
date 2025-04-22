@@ -1,5 +1,5 @@
 import logging
-from typing import Optional
+from typing import Optional, Dict, Union
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -90,7 +90,7 @@ class LoginService:
 			self,
 			email: str,
 			password: str,
-	) -> Optional[dict[str: str, str: bool]]:
+	) -> Optional[Dict[str, Union[str, bool]]]:
 		"""
 		Authenticate user
 		Returns {"user_id": "some uuid4 string", "permission": "True"}

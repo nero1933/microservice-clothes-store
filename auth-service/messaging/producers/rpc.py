@@ -1,6 +1,5 @@
 import asyncio
 import json
-import logging
 from typing import MutableMapping
 
 import uuid
@@ -30,21 +29,20 @@ class RPCClient:
 
 	async def on_response(self, message: AbstractIncomingMessage) -> None:
 		if message.correlation_id is None:
-			print(f"Bad message {message!r}")
+			default_logger.warning(f"Received message without correlation_id: {message!r}")
 			return
 
 		future: asyncio.Future = self.futures.pop(message.correlation_id)
 		future.set_result(message.body)
 
-	async def call(self, data: dict) -> int:
+	async def call(self, data: dict, routing_key: str) -> bytes:
 		correlation_id = str(uuid.uuid4())
 		loop = asyncio.get_running_loop()
 		future = loop.create_future()
 		self.futures[correlation_id] = future
 
 		body = json.dumps(data).encode()
-		# logging.info(f"Calling {correlation_id} with {body!r}")
-		default_logger.info(f"Calling {correlation_id}")
+		default_logger.info(f"Calling {correlation_id} to {routing_key} with data={data}")
 
 		await self.channel.default_exchange.publish(
 			Message(
@@ -53,8 +51,7 @@ class RPCClient:
 				correlation_id=correlation_id,
 				reply_to=self.callback_queue.name,
 			),
-			routing_key="rpc_queue",
-
+			routing_key=routing_key,
 		)
 
 		return await future

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from core import settings
-# from loggers import default_logger
+from loggers import default_logger
 from models import TokenBlacklist
 
 TokenPair = namedtuple("TokenPair", ["access_token", "refresh_token"])
@@ -28,13 +28,9 @@ class JWTBaseService:
 	def __init__(
 			self,
 			db: AsyncSession,
-			# access_token: Optional[str] = None,
-			# refresh_token: Optional[str] = None
 	):
 
 		self.db = db
-		# self.access_token = access_token
-		# self.refresh_token = refresh_token
 
 	def encode_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
 		""" Creates JWT token """
@@ -82,7 +78,7 @@ class JWTBaseService:
 				algorithms=[self.JWT_TOKEN_ALGORITHM]
 			)
 		except ExpiredSignatureError:
-			default_logger.warning(f'Token is expired')
+			default_logger.warning(f'Token has expired')
 			raise ExpiredSignatureError("Token has expired")
 		except PyJWTError:
 			default_logger.warning(f"Token can't be decoded, PyJWTError")
@@ -155,33 +151,33 @@ class JWTAccessService(JWTBaseService):
 			# 3.1: Validate 'jti'
 			jti_str = payload.get("jti")
 			if not jti_str:
-				default_logger.warning('1111111111111111111111111111111111111111')
+				default_logger.warning('"jti" is missing')
 				raise ValueError("Token is invalid")
 
 			# 3.2 Check if token is blacklisted 'jti'
 			try:
 				jti = uuid.UUID(jti_str)
 			except ValueError:
-				default_logger.warning('1111111111111111111111111111111111111111')
+				default_logger.warning('"jti" is invalid')
 				raise ValueError("Token is invalid")
 
 			stmt = select(TokenBlacklist).where(TokenBlacklist.jti == jti)
 			result = await self.db.execute(stmt)
 			jti_in_db = result.scalar_one_or_none()
 			if jti_in_db:
-				default_logger.warning('1111111111111111111111111111111111111111')
+				default_logger.warning('Token is blacklisted')
 				raise ValueError("Token is invalid")
 
 		# 4: Validate 'sub'
 		user_id_str = payload.get("sub")
 		if not user_id_str:
-			default_logger.warning('1111111111111111111111111111111111111111')
+			default_logger.warning('"sub" is missing')
 			raise ValueError("Token is invalid")
 
 		try:
 			user_id = uuid.UUID(user_id_str)
 		except ValueError:
-			default_logger.warning('1111111111111111111111111111111111111111')
+			default_logger.warning('"user_id" is invalid')
 			raise ValueError("Token is invalid")
 
 		return payload
@@ -196,7 +192,7 @@ class JWTAccessService(JWTBaseService):
 		user_id = payload.get('sub')
 
 		if token_type != payload.get('type'):
-			# logger.warning('')
+			default_logger.warning(f'Token type is invalid: {token_type}')
 			raise ValueError("Token is invalid")
 
 		return user_id
@@ -226,8 +222,8 @@ class TokenBlacklistService:
 			await self.db.commit()
 		except IntegrityError:
 			await self.db.rollback()
-			default_logger.info("Can't add jti because it already exists")
-			raise ValueError("Token is already blacklisted")
+			default_logger.warning("Can't add jti because it already exists")
+			raise ValueError("Can't add jti because it already exists")
 
 	async def is_blacklisted(self, jti: uuid.UUID) -> bool:
 		"""Checks if the token JTI is blacklisted."""

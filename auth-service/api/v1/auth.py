@@ -32,7 +32,7 @@ async def login(
 ) -> schemas.TokenRead:
 	""" Logs in user. """
 
-	user = await auth_service.login(form_data.username, form_data.password)
+	user = await auth_service.authenticate(form_data.username, form_data.password)
 	user_id = user.get('user_id')
 	if not user_id:
 		raise CredentialsException()
