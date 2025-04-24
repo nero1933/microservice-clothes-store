@@ -1,1 +1,1 @@
-from .base_crud import BaseCRUD
+from .base import BaseCRUD

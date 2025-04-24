@@ -8,20 +8,21 @@ from aio_pika import Message
 from aio_pika.abc import AbstractConnection, AbstractChannel, AbstractQueue, AbstractIncomingMessage
 
 from loggers import default_logger
-from messaging.connection_manager import rabbitmq
+from ..connection_manager import RabbitMQManager as rabbitmq, RabbitMQManager
 
 
-class RPCClient:
+class RPCClient(RabbitMQManager):
 	connection: AbstractConnection
 	channel: AbstractChannel | None = None
 	callback_queue: AbstractQueue
 
 	def __init__(self) -> None:
 		self.futures: MutableMapping[str, asyncio.Future] = {}
+		super().__init__()
 
-	async def connect(self) -> "RPCClient":
+	async def setup(self) -> "RPCClient":
 		if not self.channel:
-			self.channel = await rabbitmq.create_channel()
+			self.channel = await self.create_channel()
 
 		return self
 

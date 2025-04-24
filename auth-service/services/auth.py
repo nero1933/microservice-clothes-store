@@ -1,6 +1,6 @@
 from typing import Dict, Union
 
-from messaging.producers import UsersClient
+from messaging.clients import UsersClient
 
 
 class AuthService:

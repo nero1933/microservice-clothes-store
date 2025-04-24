@@ -20,7 +20,7 @@ class UsersClient:
 		Response example: {'user_id': 'some uuid4 str'}
 		"""
 
-		client = await rpc_client.connect()
+		client = await rpc_client.setup()
 		data = {'username': username, 'password': password}
 		response = await client.call(data, routing_key="rpc.users.get_auth_data")
 		result = json.loads(response)

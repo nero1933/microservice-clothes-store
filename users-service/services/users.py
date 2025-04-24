@@ -6,7 +6,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.crud import mixins
-from core.crud.base_crud import M, BaseCRUD
+from core.crud.base import M, BaseCRUD
 from exceptions.custom_exceptions import EmailExistsException
 from loggers import default_logger
 from models import User
