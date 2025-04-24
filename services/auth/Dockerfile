@@ -1,0 +1,17 @@
+FROM python:3.13-alpine
+LABEL authors="nero"
+
+WORKDIR /auth
+
+COPY requirements.txt /auth/
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . /auth/
+COPY ../../core /auth/core
+
+RUN apk add --no-cache gcc musl-dev libffi-dev
+
+EXPOSE 8000
+
+ENV PYTHONPATH=/auth

@@ -1,12 +1,13 @@
 services:
   auth-service:
     container_name: auth-service
-    build: auth-service
+    build: ./services/auth
     command: ["python", "main.py"]
     ports:
       - "8000:8000"
     volumes:
-      - ./auth-service:/auth-service
+      - ./services/auth:/auth
+      - ./core:/auth/core
     environment:
       - DB_NAME=${AUTH_DB_NAME}
       - DB_SOCKET=auth-db:5432
@@ -32,7 +33,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./users-service/data/postgres:/var/lib/postgresql/data
+      - ./services/auth/data/postgres:/var/lib/postgresql/data
     environment:
       - POSTGRES_DB=${AUTH_DB_NAME}
       - POSTGRES_USER=${AUTH_DB_USER}
