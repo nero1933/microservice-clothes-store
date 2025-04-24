@@ -3,8 +3,7 @@ import asyncio
 from core import settings
 from core.messaging import BaseMessagingConnection
 from loggers import default_logger
-# from messaging.consumers.rpc_worker import get_rpc_worker
-from messaging.workers.rpc_worker import test_worker
+from messaging.workers import auth_authenticate_worker
 
 
 async def main():
@@ -12,7 +11,7 @@ async def main():
 	await rabbitmq.setup_connection(settings.rabbitmq_url)
 
 	workers = [
-		await test_worker,
+		await auth_authenticate_worker,
 	]
 
 	await asyncio.gather(*[await worker.start() for worker in workers])

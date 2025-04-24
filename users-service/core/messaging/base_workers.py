@@ -81,17 +81,13 @@ class BaseRPCWorker(BaseWorker):
 		pass
 
 
-async def get_worker_with_db(
-		worker: type[BaseWorker],
-		queue_kwargs: dict | None = None,
-		exchange_kwargs: dict | None = None,
-		bind_kwargs: dict | None = None
+async def get_worker(
+		worker: type[BaseWorker] | type[BaseRPCWorker],
+		db: bool = False,
+		*args, **kwargs
 ):
-	async with AsyncSessionLocal() as db:
-		w = worker(
-			queue_kwargs,
-			exchange_kwargs,
-			bind_kwargs,
-			db=db
-		)
-		return w
+	if db:
+		async with AsyncSessionLocal() as session:
+			return worker(*args, **kwargs, db=session)
+
+	return worker(*args, **kwargs)
