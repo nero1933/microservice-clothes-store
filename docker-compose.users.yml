@@ -14,6 +14,7 @@ services:
       - DB_TEST_SOCKET=test-db:5432
       - DB_USER=${USERS_DB_USER}
       - DB_PASSWORD=${USERS_DB_PASSWORD}
+      - RABBITMQ_NAME=users-service
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_SOCKET=rabbitmq:5672
@@ -36,6 +37,7 @@ services:
       - DB_TEST_SOCKET=test-db:5432
       - DB_USER=${USERS_DB_USER}
       - DB_PASSWORD=${USERS_DB_PASSWORD}
+      - RABBITMQ_NAME=users-worker
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_SOCKET=rabbitmq:5672

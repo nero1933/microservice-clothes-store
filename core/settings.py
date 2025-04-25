@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 	DB_TEST_SOCKET: str
 	DB_NAME: str
 
+	RABBITMQ_NAME: str
 	RABBITMQ_USER: str
 	RABBITMQ_PASSWORD: str
 	RABBITMQ_SOCKET: str
@@ -29,7 +30,7 @@ class Settings(BaseSettings):
 
 	@property
 	def rabbitmq_url(self) -> str:
-		return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@{self.RABBITMQ_SOCKET}/"
+		return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@{self.RABBITMQ_SOCKET}/?name={self.RABBITMQ_NAME}"
 
 
 settings = Settings()

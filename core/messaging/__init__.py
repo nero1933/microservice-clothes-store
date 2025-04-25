@@ -1,1 +1,1 @@
-from .base import BaseMessagingConnection, BaseMessagingExchange, BaseMessagingQueue
+from .base import BaseMessagingConnection

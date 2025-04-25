@@ -1,20 +1,13 @@
 from typing import Dict, Union
 
-from messaging.clients import UsersClient
+from core.messaging import BaseMessagingConnection
+from messaging.clients.instances import users_authenticate_rpc_client
 
 
-class AuthService:
+class AuthService(BaseMessagingConnection):
 
 	@staticmethod
 	async def authenticate(username: str, password: str) -> Dict[str, Union[str, bool]]:
-		"""
-		Sends 'username' & 'password' to users service to authenticate user.
-
-		Returns a dictionary with:
-		- 'user_id': a string representing the user ID (UUID).
-		   or
-		- 'error': a string representing the error message.
-
-		Response example: {'user_id': 'some uuid4 str'}
-		"""
-		return await UsersClient.get_auth_data(username, password)
+		rpc = await users_authenticate_rpc_client.get_rpc()
+		res = await rpc.proxy.rpc.users.authenticate(username=username, password=password)
+		return res
