@@ -43,7 +43,7 @@ services:
       - --web.enable-remote-write-receiver
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
     ports:
       - "9090:9090"
     networks:
@@ -53,12 +53,12 @@ services:
     image: grafana/loki:3.4
     container_name: loki
     command:
-      - -config.file=/etc/loki/local-config.yaml
+      - -config.file=/mnt/config/config.yaml
     ports:
       - "3100:3100"
     volumes:
-      - ./loki/loki-config.yml:/etc/loki/loki-config.yml
-      - ./loki/loki-data:/loki
+      - ./monitoring/loki/config.yaml:/mnt/config/config.yaml
+      - ./monitoring/loki/data:/loki
     networks:
       - ecommerce-net
 
@@ -71,8 +71,8 @@ services:
     ports:
       - "12345:12345"
     volumes:
-      - ./alloy/config.alloy:/etc/alloy/config.alloy
-      - ./alloy/alloy-data:/var/lib/alloy/data
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy
+      - ./monitoring/alloy/data:/var/lib/alloy/data
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - loki
