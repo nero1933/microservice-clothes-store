@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends
 import schemas
 from core.exceptions import ExceptionDocFactory
 from dependencies import get_register_service
-from services import RegisterService
+from api.v1.services import RegisterService
 from exceptions.custom_exceptions import EmailExistsException, BadRequestException
 
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])

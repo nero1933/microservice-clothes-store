@@ -9,7 +9,7 @@ from dependencies import get_base_token_service, get_pair_token_service, \
 	get_token_blacklist_service, get_auth_service
 from exceptions.custom_exceptions import CredentialsException, InactiveUserException, NotAuthenticatedException, \
 	RefreshTokenMissingException
-from services import JWTBaseService, JWTPairService, TokenBlacklistService, AuthService
+from api.v1.services import JWTBaseService, JWTPairService, TokenBlacklistService, AuthService
 
 auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 

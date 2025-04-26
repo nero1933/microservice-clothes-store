@@ -1,1 +1,1 @@
-from .auth import auth_router
+from .endpoints.auth import auth_router

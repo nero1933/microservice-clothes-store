@@ -1,1 +1,1 @@
-from .users import users_router
+from api.v1.endpoints.users import users_router

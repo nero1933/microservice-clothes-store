@@ -81,7 +81,7 @@ class BaseMessagingConnection:
 		return self._channel
 
 
-class RPClient(BaseMessagingConnection):
+class RPCCreator(BaseMessagingConnection):
 	_rpc: RPC | None = None
 
 	async def _create_rpc(self) -> RPC:
@@ -95,6 +95,15 @@ class RPClient(BaseMessagingConnection):
 
 		return self._rpc
 
+
+class RPCSingleton:
+	_instances = {}
+
+	def __new__(cls, *args, **kwargs):
+		if cls not in cls._instances:
+			cls._instances[cls] = super().__new__(cls)
+
+		return cls._instances[cls]
 
 # class BaseMessagingExchange(BaseMessagingConnection, ABC):
 # 	_exchange: AbstractExchange | None = None

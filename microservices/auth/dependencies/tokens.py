@@ -4,7 +4,7 @@ from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import get_async_session
-from services.tokens import TokenBlacklistService, JWTAccessService, JWTBaseService, \
+from api.v1.services import TokenBlacklistService, JWTAccessService, JWTBaseService, \
 	JWTPairService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/v1/auth/login")

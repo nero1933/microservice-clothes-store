@@ -1,1 +1,1 @@
-from .base import BaseMessagingConnection
+from .base import BaseMessagingConnection, RPCCreator

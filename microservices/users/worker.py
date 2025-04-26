@@ -1,17 +1,14 @@
 import asyncio
 
 from aio_pika.patterns import RPC
-from prometheus_client import Counter, start_http_server
 
 from config import settings
 from core.messaging import BaseMessagingConnection
 from loggers import default_logger
 
-task_counter = Counter('worker_tasks_total', 'Total number of tasks processed')
 
-
-async def authenticate(username, password):
-	print(f"Authenticating user {username}, {password}")
+async def get_auth_data(username, password):
+	default_logger.info(f"Authenticating user {username}, {password}")
 	return {'user_id': '9e2fbe43-7486-4d3f-9323-6b0fae4e2f4e'}
 
 
@@ -21,7 +18,12 @@ async def main():
 	channel = await rabbitmq.get_channel()
 
 	rpc = await RPC.create(channel)
-	await rpc.register("rpc.users.authenticate", authenticate, auto_delete=True)
+	await rpc.register(
+		"rpc.users.get_auth_data",
+		get_auth_data,
+		auto_delete=True,
+		timeout=5.0
+	)
 
 	try:
 		await asyncio.Future()
@@ -32,6 +34,5 @@ async def main():
 
 
 if __name__ == "__main__":
-	start_http_server(8100)
 	default_logger.info("* * Worker started")
 	asyncio.run(main())
