@@ -18,19 +18,23 @@ class Settings(BaseSettings):
 
 	@property
 	def db_url(self) -> str:
-		return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_SOCKET}/{self.DB_NAME}"
+		return (f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@"
+				f"{self.DB_SOCKET}/{self.DB_NAME}")
 
 	@property
 	def test_db_url(self) -> str:
-		return f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_TEST_SOCKET}/{self.DB_NAME}"
+		return (f"postgresql+asyncpg://{self.DB_USER}:{self.DB_PASSWORD}@"
+				f"{self.DB_TEST_SOCKET}/{self.DB_NAME}")
 
 	@property
 	def alembic_db_url(self) -> str:
-		return f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@{self.DB_SOCKET}/{self.DB_NAME}"
+		return (f"postgresql://{self.DB_USER}:{self.DB_PASSWORD}@"
+				f"{self.DB_SOCKET}/{self.DB_NAME}")
 
 	@property
 	def rabbitmq_url(self) -> str:
-		return f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@{self.RABBITMQ_SOCKET}/?name={self.RABBITMQ_NAME}"
+		return (f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@"
+				f"{self.RABBITMQ_SOCKET}/?name={self.RABBITMQ_NAME}")
 
 
 settings = Settings()

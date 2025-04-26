@@ -1,11 +1,13 @@
 import asyncio
 
-from aio_pika import connect_robust, connect
 from aio_pika.patterns import RPC
+from prometheus_client import Counter, start_http_server
 
 from config import settings
 from core.messaging import BaseMessagingConnection
 from loggers import default_logger
+
+task_counter = Counter('worker_tasks_total', 'Total number of tasks processed')
 
 
 async def authenticate(username, password):
@@ -30,6 +32,6 @@ async def main():
 
 
 if __name__ == "__main__":
-
+	start_http_server(8100)
 	default_logger.info("* * Worker started")
 	asyncio.run(main())

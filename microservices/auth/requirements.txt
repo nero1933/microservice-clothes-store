@@ -10,3 +10,5 @@ pytest-asyncio
 anyio
 httpx
 aio-pika
+prometheus_fastapi_instrumentator
+prometheus_client
