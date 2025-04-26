@@ -1,0 +1,47 @@
+discovery.docker "linux" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "logs_integrations_docker" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex = "/(.*)"
+    target_label = "service_name"
+  }
+}
+
+loki.source.docker "fastapi_logs" {
+  host = "unix:///var/run/docker.sock"
+  targets    = discovery.docker.linux.targets
+  labels     = {"platform" = "docker"}
+  relabel_rules = discovery.relabel.logs_integrations_docker.rules
+  forward_to = [loki.write.loki.receiver]
+//  targets = [
+//    {
+//      name = "users-service",
+//      labels = {
+//        service_name = "users-service",
+//        job = "fastapi",
+//      },
+//    },
+//    {
+//      name = "auth-service",
+//      labels = {
+//        service_name = "auth-service",
+//        job = "fastapi",
+//      },
+//    },
+//  ]
+}
+
+// loki.process "logs" {
+//   forward_to = [loki.write.loki.receiver]
+// }
+
+loki.write "loki" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
