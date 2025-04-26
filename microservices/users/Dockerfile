@@ -14,4 +14,4 @@ RUN apk add --no-cache gcc musl-dev libffi-dev
 
 EXPOSE 8000
 
-ENV PYTHONPATH=/users:/users/core
+ENV PYTHONPATH=/users

@@ -1,0 +1,22 @@
+global:
+  scrape_interval: 30s
+
+scrape_configs:
+  - job_name: 'fastapi'
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+        - auth-service:8000
+        - users-service:8000
+
+  - job_name: 'workers'
+    metrics_path: /metrics
+    static_configs:
+      - targets:
+          # - auth-worker:8100
+          - users-worker:8100
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - prometheus:9090
