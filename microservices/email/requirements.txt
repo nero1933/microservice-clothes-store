@@ -1,0 +1,6 @@
+fastapi[all]
+pytest
+pytest-asyncio
+anyio
+httpx
+aio-pika
