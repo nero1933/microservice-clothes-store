@@ -3,15 +3,13 @@ LABEL authors="nero"
 
 WORKDIR /email
 
-COPY requirements.txt /email/
+COPY /microservices/email/requirements.txt /email
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . /email/
-COPY ../../core /email/core
+COPY /microservices/email /email
+COPY /core /email/core
 
 RUN apk add --no-cache gcc musl-dev libffi-dev
-
-EXPOSE 8000
 
 ENV PYTHONPATH=/email

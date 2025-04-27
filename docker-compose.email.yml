@@ -1,0 +1,21 @@
+services:
+  email-worker:
+    container_name: email-worker
+    build:
+      context: .
+      dockerfile: ./microservices/email/Dockerfile
+    command: ["python", "worker.py"]
+    volumes:
+      - ./microservices/email:/email
+      - ./core:/email/core
+    environment:
+      - RABBITMQ_NAME=email-worker
+      - RABBITMQ_USER=${RABBITMQ_USER}
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      - RABBITMQ_SOCKET=rabbitmq:5672
+    networks:
+      - ecommerce-net
+
+networks:
+  ecommerce-net:
+    external: true

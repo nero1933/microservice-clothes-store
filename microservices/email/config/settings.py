@@ -14,3 +14,5 @@ class Settings(BaseSettings):
 	def rabbitmq_url(self) -> str:
 		return (f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@"
 				f"{self.RABBITMQ_SOCKET}/?name={self.RABBITMQ_NAME}")
+
+settings = Settings()

@@ -2,16 +2,15 @@ import asyncio
 
 from config import settings
 from core.messaging import BaseMessagingConnection
-from loggers import default_logger
-from messaging.workers.rpc import RPCUsersGetAuthData
+# from loggers import default_logger
 
 
 async def main():
-	workers = (RPCUsersGetAuthData, )
+	# workers = (None, )
 	rabbit = BaseMessagingConnection()
 	await rabbit.setup_connection(settings.rabbitmq_url)
-	for worker in workers:
-		await worker.register()
+	# for worker in workers:
+	# 	await worker.register()
 
 	try:
 		await asyncio.Future()
@@ -20,5 +19,5 @@ async def main():
 
 
 if __name__ == "__main__":
-	default_logger.info("* * Worker started")
+	# default_logger.info("* * Worker started")
 	asyncio.run(main())
