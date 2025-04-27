@@ -1,4 +1,4 @@
-from api.v1.services import LoginService
+from services import LoginService
 from core.db import AsyncSessionLocal
 from core.messaging import RPCWorkerABC
 from loggers import default_logger

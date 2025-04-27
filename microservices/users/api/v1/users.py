@@ -1,13 +1,9 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 
 import schemas
 from core.exceptions import ExceptionDocFactory
 from dependencies import get_register_service
-from api.v1.services import RegisterService
+from services import RegisterService
 from exceptions.custom_exceptions import EmailExistsException, BadRequestException
 
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
@@ -39,30 +35,9 @@ async def register(
 ################################################################
 
 
-def send_test_email(subject: str, body: str, to_email: str):
-	from_email = "nero.pet.1933@gmail.com"
-	to_email = to_email
-
-	msg = MIMEMultipart()
-	msg['From'] = from_email
-	msg['To'] = to_email
-	msg['Subject'] = subject
-	msg.attach(MIMEText(body, 'plain'))
-
-	try:
-		server = smtplib.SMTP('postfix', 587)
-		server.sendmail(from_email, to_email, msg.as_string())
-		server.quit()
-	except Exception as e:
-		raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
 
 
-@users_router.post("/send-test-email/")
-async def send_test_email_endpoint(to_email: str):
-	subject = "Test Email"
-	body = "This is a test email sent from FastAPI!"
-	send_test_email(subject, body, to_email)
-	return {"message": "Test email sent successfully"}
+
 
 # @router.post(
 # 	"/login",
