@@ -5,32 +5,22 @@ from aio_pika.patterns import RPC
 from config import settings
 from core.messaging import BaseMessagingConnection
 from loggers import default_logger
+from messaging.workers.rpc import RPCUsersGetAuthData
 
 
-async def get_auth_data(username, password):
-	default_logger.info(f"Authenticating user {username}, {password}")
-	return {'user_id': '9e2fbe43-7486-4d3f-9323-6b0fae4e2f4e'}
 
 
 async def main():
-	rabbitmq = BaseMessagingConnection()
-	await rabbitmq.setup_connection(settings.rabbitmq_url)
-	channel = await rabbitmq.get_channel()
+	rabbit = BaseMessagingConnection()
+	await rabbit.setup_connection(settings.rabbitmq_url)
+	await RPCUsersGetAuthData.register()
 
-	rpc = await RPC.create(channel)
-	await rpc.register(
-		"rpc.users.get_auth_data",
-		get_auth_data,
-		auto_delete=True,
-		timeout=5.0
-	)
 
 	try:
 		await asyncio.Future()
 	finally:
-		await rpc.close()
-		await channel.close()
-		await rabbitmq.disconnect()
+		await rabbit.disconnect()
+
 
 
 if __name__ == "__main__":

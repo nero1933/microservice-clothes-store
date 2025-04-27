@@ -25,6 +25,7 @@ class UserCreate(UserBase):
 
 
 class UserRead(UserBase):
+	role: str
 	is_active: bool
 	created_at: datetime
 
@@ -33,7 +34,7 @@ class UserInDB(UserBase):
 	""" Validates data before creating a user instance """
 	hashed_password: str
 	is_active: bool
-	is_admin: bool
+	role: str
 
 
 class UserFull(UserInDB):

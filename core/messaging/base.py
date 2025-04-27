@@ -12,9 +12,7 @@ class BaseMessagingConnection:
 	_connection: AbstractRobustConnection | None = None
 	_connection_name: str | None = None
 	_url: str | None = None
-
-	def __init__(self) -> None:
-		self._channel: AbstractChannel | None = None
+	_channel: AbstractChannel | None = None
 
 	@classmethod
 	async def setup_connection(cls, url: str | None = None) -> None:
@@ -65,45 +63,23 @@ class BaseMessagingConnection:
 			await cls._connection.close()
 			cls._connection = None
 
-	async def _create_channel(self):
-		if self._channel:
-			return self._channel
+	@classmethod
+	async def _create_channel(cls):
+		if cls._channel:
+			return cls._channel
 
-		connection = await self.get_connection()
-		self._channel = await connection.channel()
+		connection = await cls.get_connection()
+		cls._channel = await connection.channel()
 
-		return self._channel
+		return cls._channel
 
-	async def get_channel(self):
-		if self._channel is None:
-			return await self._create_channel()
+	@classmethod
+	async def get_channel(cls) -> AbstractChannel:
+		if cls._channel is None:
+			return await cls._create_channel()
 
-		return self._channel
+		return cls._channel
 
-
-class RPCCreator(BaseMessagingConnection):
-	_rpc: RPC | None = None
-
-	async def _create_rpc(self) -> RPC:
-		channel = await self.get_channel()
-		self._rpc = await RPC.create(channel)
-		return self._rpc
-
-	async def get_rpc(self) -> RPC:
-		if self._rpc is None:
-			return await self._create_rpc()
-
-		return self._rpc
-
-
-class RPCSingleton:
-	_instances = {}
-
-	def __new__(cls, *args, **kwargs):
-		if cls not in cls._instances:
-			cls._instances[cls] = super().__new__(cls)
-
-		return cls._instances[cls]
 
 # class BaseMessagingExchange(BaseMessagingConnection, ABC):
 # 	_exchange: AbstractExchange | None = None

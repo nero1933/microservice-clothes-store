@@ -1,4 +1,8 @@
-from fastapi import APIRouter, Depends
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+from fastapi import APIRouter, Depends, HTTPException
 
 import schemas
 from core.exceptions import ExceptionDocFactory
@@ -27,10 +31,38 @@ async def register(
 	user = await register_service.create_user(
 		user_data=user_data,
 		is_active=True,
-		is_admin=False
+		role='user'
 	)
 	return schemas.UserRead.model_validate(user)
 
+
+################################################################
+
+
+def send_test_email(subject: str, body: str, to_email: str):
+	from_email = "nero.pet.1933@gmail.com"
+	to_email = to_email
+
+	msg = MIMEMultipart()
+	msg['From'] = from_email
+	msg['To'] = to_email
+	msg['Subject'] = subject
+	msg.attach(MIMEText(body, 'plain'))
+
+	try:
+		server = smtplib.SMTP('postfix', 587)
+		server.sendmail(from_email, to_email, msg.as_string())
+		server.quit()
+	except Exception as e:
+		raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
+
+
+@users_router.post("/send-test-email/")
+async def send_test_email_endpoint(to_email: str):
+	subject = "Test Email"
+	body = "This is a test email sent from FastAPI!"
+	send_test_email(subject, body, to_email)
+	return {"message": "Test email sent successfully"}
 
 # @router.post(
 # 	"/login",

@@ -36,91 +36,106 @@ services:
     networks:
       - ecommerce-net
 
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    command:
-      - --web.enable-remote-write-receiver
-      - --config.file=/etc/prometheus/prometheus.yml
-    volumes:
-      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    networks:
-      - ecommerce-net
-
-  loki:
-    image: grafana/loki:3.4
-    container_name: loki
-    command:
-      - -config.file=/mnt/config/config.yaml
-    ports:
-      - "3100:3100"
-    volumes:
-      - ./monitoring/loki/config.yaml:/mnt/config/config.yaml
-      - ./monitoring/loki/data:/loki
-    networks:
-      - ecommerce-net
-
-  alloy:
-    image: grafana/alloy:latest
-    container_name: alloy
-    user: root
-    command: >-
-      run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
-    ports:
-      - "12345:12345"
-    volumes:
-      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy
-      - ./monitoring/alloy/data:/var/lib/alloy/data
-      - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      - loki
-    networks:
-      - ecommerce-net
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3000:3000"
+  postfix:
+    image: boky/postfix:latest-alpine
+    container_name: postfix
+    hostname: postfix
     environment:
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
-      - GF_AUTH_ANONYMOUS_ENABLED=true
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    entrypoint:
-      - sh
-      - -euc
-      - |
-        mkdir -p /etc/grafana/provisioning/datasources
-        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
-        apiVersion: 1
-        datasources:
-        - name: Loki
-          type: loki
-          access: proxy
-          orgId: 1
-          url: http://loki:3100
-          basicAuth: false
-          isDefault: false
-          version: 1
-          editable: false
-        - name: Prometheus
-          type: prometheus
-          orgId: 1
-          url: http://prometheus:9090
-          basicAuth: false
-          isDefault: true
-          version: 1
-          editable: false
-        EOF
-        /run.sh
-    depends_on:
-      - prometheus
-      - loki
+      - RELAYHOST=[smtp.sendgrid.net]:587
+      - RELAYHOST_USERNAME=${RELAYHOST_USERNAME}
+      - RELAYHOST_PASSWORD=${RELAYHOST_PASSWORD}
+      - ALLOWED_SENDER_DOMAINS=gmail.com
+      - RELAYHOST_TLS_LEVEL=encrypt
+    ports:
+      - "587:587"
     networks:
       - ecommerce-net
+
+#  prometheus:
+#    image: prom/prometheus:latest
+#    container_name: prometheus
+#    command:
+#      - --web.enable-remote-write-receiver
+#      - --config.file=/etc/prometheus/prometheus.yml
+#    volumes:
+#      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+#    ports:
+#      - "9090:9090"
+#    networks:
+#      - ecommerce-net
+#
+#  loki:
+#    image: grafana/loki:3.4
+#    container_name: loki
+#    command:
+#      - -config.file=/mnt/config/config.yaml
+#    ports:
+#      - "3100:3100"
+#    volumes:
+#      - ./monitoring/loki/config.yaml:/mnt/config/config.yaml
+#      - ./monitoring/loki/data:/loki
+#    networks:
+#      - ecommerce-net
+#
+#  alloy:
+#    image: grafana/alloy:latest
+#    container_name: alloy
+#    user: root
+#    command: >-
+#      run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+#    ports:
+#      - "12345:12345"
+#    volumes:
+#      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy
+#      - ./monitoring/alloy/data:/var/lib/alloy/data
+#      - /var/run/docker.sock:/var/run/docker.sock
+#    depends_on:
+#      - loki
+#    networks:
+#      - ecommerce-net
+#
+#  grafana:
+#    image: grafana/grafana:latest
+#    container_name: grafana
+#    ports:
+#      - "3000:3000"
+#    environment:
+#      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+#      - GF_AUTH_ANONYMOUS_ENABLED=true
+#      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+#      - GF_SECURITY_ADMIN_PASSWORD=admin
+#    entrypoint:
+#      - sh
+#      - -euc
+#      - |
+#        mkdir -p /etc/grafana/provisioning/datasources
+#        cat <<EOF > /etc/grafana/provisioning/datasources/ds.yaml
+#        apiVersion: 1
+#        datasources:
+#        - name: Loki
+#          type: loki
+#          access: proxy
+#          orgId: 1
+#          url: http://loki:3100
+#          basicAuth: false
+#          isDefault: false
+#          version: 1
+#          editable: false
+#        - name: Prometheus
+#          type: prometheus
+#          orgId: 1
+#          url: http://prometheus:9090
+#          basicAuth: false
+#          isDefault: true
+#          version: 1
+#          editable: false
+#        EOF
+#        /run.sh
+#    depends_on:
+#      - prometheus
+#      - loki
+#    networks:
+#      - ecommerce-net
 
 networks:
   ecommerce-net:

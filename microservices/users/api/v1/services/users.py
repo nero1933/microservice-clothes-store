@@ -26,7 +26,7 @@ class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
 			self,
 			user_data: schemas.UserCreate,
 			is_active: bool = True,
-			is_admin: bool = False,
+			role: str = 'user',
 	) -> User:
 		""" Creates a new user. """
 
@@ -37,7 +37,7 @@ class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
 				**user_data.model_dump(exclude={"password"}),
 				hashed_password=hashed_password,
 				is_active=is_active,
-				is_admin=is_admin,
+				role=role
 			)
 
 			return await self.create(
@@ -96,24 +96,25 @@ class LoginService:
 		Returns {"user_id": "some uuid4 string"} or {'error': 'error message'}
 		"""
 
-		default_logger.info(f'[.] Try to authenticate user: {email}')
+		default_logger.info(f'[x] -> Trying to authenticate user: {email}')
 		data = {}
 		user = await self.get_object(email)
 
 		if not user:
-			data.setdefault('error', 'User not found')
+			default_logger.info(f'[x] -> No such user: {email}')
 			return data
 
 		if not p.verify_password(password, user.hashed_password):
-			data.setdefault('error', 'Wrong password')
+			default_logger.info(f'[x] -> Wrong password for user: {email}')
 			return data
 
 		permission = self.check_permission(user)
 		if not permission:
-			data.setdefault('error', 'No permission')
-			return data
+			default_logger.info(f'[x] -> No permission for user: {email}')
+			data.setdefault('role', str(user.role))
 
 		data.setdefault('user_id', str(user.id)) # UUID to str
+		default_logger.info(f'[x] -> Authentication data: {data}')
 		return data
 
 

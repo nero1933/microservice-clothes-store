@@ -1,18 +1,20 @@
 from __future__ import annotations
-from core.messaging import RPCCreator
 from typing import Dict
+from core.messaging import RPCClientABC
+from loggers import default_logger
 
-from core.messaging.base import RPCSingleton
 
-
-class RPCUsersGetAuthData(RPCCreator, RPCSingleton):
-	async def __call__(self, username: str, password: str) -> Dict[str, str | bool]:
-		rpc = await self.get_rpc()
-		res = await rpc.call(
+class RPCUsersGetAuthData(RPCClientABC):
+	@classmethod
+	async def call(cls, username: str, password: str) -> Dict[str, str | bool]:
+		rpc = await cls.get_rpc()
+		default_logger.info(
+			f'[x] RPC | AUTH calling USERS to "get_auth_data": {username}'
+		)
+		return await rpc.call(
 			"rpc.users.get_auth_data",
 			kwargs={
 				"username": username,
 				"password": password
 			}
 		)
-		return res

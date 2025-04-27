@@ -8,7 +8,6 @@ from messaging.clients.rpc import RPCUsersGetAuthData
 class AuthService(BaseMessagingConnection):
 	@staticmethod
 	async def authenticate(username: str, password: str) -> Dict[str, str | bool]:
-		rpc = RPCUsersGetAuthData()
-		auth_data = await rpc(username=username, password=password)
+		auth_data = await RPCUsersGetAuthData.call(username=username, password=password)
 		default_logger.info(f'AUTH DATA: {auth_data}')
 		return {}
