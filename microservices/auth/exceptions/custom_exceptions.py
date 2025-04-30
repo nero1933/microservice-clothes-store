@@ -38,6 +38,17 @@ class CredentialsException(HTTPCustomException):
 		)
 
 
+class ExpiredSignatureException(HTTPCustomException):
+	detail = "Token has expired"
+
+	def __init__(self):
+		super().__init__(
+			status_code=status.HTTP_401_UNAUTHORIZED,
+			detail=self.detail,
+			headers={"WWW-Authenticate": "Bearer"},
+		)
+
+
 class RefreshTokenMissingException(HTTPCustomException):
 	detail = "Refresh token not found"
 

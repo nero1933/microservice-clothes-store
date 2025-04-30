@@ -3,7 +3,8 @@ services:
     container_name: email-worker
     build:
       context: .
-      dockerfile: ./microservices/email/Dockerfile
+      dockerfile: microservices/email/Dockerfile-worker
+    image: email-worker:0.1
     command: ["python", "worker.py"]
     volumes:
       - ./microservices/email:/email

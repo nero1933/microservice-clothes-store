@@ -1,5 +1,33 @@
 services:
 
+  traefik:
+    image: "traefik:v3.3"
+    container_name: "traefik"
+    command:
+      - "--log.level=DEBUG"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entryPoints.web.address=:80"
+    ports:
+      - "80:80"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # - /traefik/traefik.yaml:/etc/traefik/traefik.yaml
+    networks:
+      - ecommerce-net
+
+  whoami:
+    image: "traefik/whoami"
+    container_name: "simple-service"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.localhost`)"
+      - "traefik.http.routers.whoami.entrypoints=web"
+    networks:
+      - ecommerce-net
+
   rabbitmq:
     container_name: rabbitmq
     image: rabbitmq:4.1.0-management-alpine
@@ -45,7 +73,7 @@ services:
       - RELAYHOST_USERNAME=${RELAYHOST_USERNAME}
       - RELAYHOST_PASSWORD=${RELAYHOST_PASSWORD}
       - ALLOWED_SENDER_DOMAINS=gmail.com
-      - RELAYHOST_TLS_LEVEL=encrypt
+      - POSTFIX_smtp_tls_security_level=encrypt
     ports:
       - "587:587"
     networks:

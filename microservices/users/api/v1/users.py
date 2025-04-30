@@ -1,8 +1,12 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy import select
 
 import schemas
+from core.db import get_async_session, AsyncSessionLocal
 from core.exceptions import ExceptionDocFactory
 from dependencies import get_register_service
+from loggers import default_logger
+from models import User
 from services import RegisterService
 from exceptions.custom_exceptions import EmailExistsException, BadRequestException
 
@@ -26,17 +30,23 @@ async def register(
 ):
 	user = await register_service.create_user(
 		user_data=user_data,
-		is_active=True,
+		is_active=False,
 		role='user'
 	)
 	return schemas.UserRead.model_validate(user)
 
 
-################################################################
+@users_router.get('/me')
+async def me(request: Request, db: AsyncSessionLocal = Depends(get_async_session)):
+	user_id = request.headers.get('X-User-Id')
+	default_logger.info(f" <_> {user_id}")
+	stmt = select(User).where(User.id == user_id)
+	result = await db.execute(stmt)
+	r = result.scalar_one_or_none()
+	if not r:
+		return {'message': 'User not found'}
 
-
-
-
+	return schemas.UserRead.model_validate(r)
 
 
 # @router.post(

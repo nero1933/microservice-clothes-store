@@ -4,7 +4,11 @@ from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.v1 import users_router
 
-app = FastAPI()
+app = FastAPI(
+    docs_url="/api/v1/users/docs",
+    openapi_url="/api/v1/users/openapi.json"
+)
+
 app.include_router(users_router)
 
 Instrumentator().instrument(app).expose(app)

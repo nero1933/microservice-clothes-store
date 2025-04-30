@@ -17,7 +17,11 @@ async def lifespan(_: FastAPI):
 	await rabbitmq.disconnect()
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+	lifespan=lifespan,
+    docs_url="/api/v1/auth/docs",
+    openapi_url="/api/v1/auth/openapi.json",
+)
 # app = FastAPI()
 app.include_router(auth_router)
 

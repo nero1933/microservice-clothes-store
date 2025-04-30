@@ -9,5 +9,5 @@ class AuthService(BaseMessagingConnection):
 	@staticmethod
 	async def authenticate(username: str, password: str) -> Dict[str, str | bool]:
 		auth_data = await RPCUsersGetAuthData.call(username=username, password=password)
-		default_logger.info(f'AUTH DATA: {auth_data}')
-		return {}
+		default_logger.info(f'[X] RPC | AUTH received USERS data: {auth_data}')
+		return auth_data

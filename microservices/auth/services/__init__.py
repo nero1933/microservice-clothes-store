@@ -1,3 +1,3 @@
 from .auth import AuthService
-from .tokens import JWTBaseService, JWTAccessService, JWTPairService, TokenBlacklistService
+from .tokens import JWTTokenService, TokenBlacklistService
 

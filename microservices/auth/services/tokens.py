@@ -18,7 +18,7 @@ from models import TokenBlacklist
 TokenPair = namedtuple("TokenPair", ["access_token", "refresh_token"])
 
 
-class JWTBaseService:
+class JWTTokenService:
 	ALLOWED_TOKEN_TYPES = ['access_token', 'refresh_token']
 	JWT_TOKEN_SECRET_KEY = settings.JWT_TOKEN_SECRET_KEY
 	JWT_TOKEN_ALGORITHM = settings.JWT_TOKEN_ALGORITHM
@@ -28,9 +28,30 @@ class JWTBaseService:
 	def __init__(
 			self,
 			db: AsyncSession,
+			access_token: str | None = None,
+			refresh_token: str | None = None,
 	):
-
 		self.db = db
+		self._access_token = access_token
+		self._refresh_token = refresh_token
+
+	@property
+	def access_token(self) -> str | None:
+		return self._access_token
+
+	@access_token.setter
+	def access_token(self, access_token: str) -> None:
+		if self._access_token is None:
+			self._access_token = access_token
+
+	@property
+	def refresh_token(self) -> str | None:
+		return self._access_token
+
+	@refresh_token.setter
+	def refresh_token(self, refresh_token: str) -> None:
+		if self._refresh_token is None:
+			self._refresh_token = refresh_token
 
 	def encode_token(self, data: dict, expires_delta: Optional[timedelta] = None) -> str:
 		""" Creates JWT token """
@@ -38,7 +59,9 @@ class JWTBaseService:
 		token_type = data.get('type')
 		if token_type not in self.ALLOWED_TOKEN_TYPES:
 			raise ValueError(
-				f"Invalid token type: {token_type}. Allowed types are: {', '.join(self.ALLOWED_TOKEN_TYPES)}")
+				f"Invalid token type: {token_type}. Allowed types are: "
+				f"{', '.join(self.ALLOWED_TOKEN_TYPES)}"
+			)
 
 		to_encode = data.copy()
 
@@ -69,7 +92,11 @@ class JWTBaseService:
 			default_logger.warning(f'{token_type} is not a valid token')
 			raise ValueError("Token is invalid")
 
-		token = getattr(self, token_type)
+		token = getattr(self, '_' + token_type)
+
+		if not token:
+			default_logger.warning(f'No token provided for type {token_type}')
+			raise ValueError("Token is invalid")
 
 		try:
 			return jwt.decode(  # decode exception raises if expired
@@ -100,31 +127,6 @@ class JWTBaseService:
 		)
 		return TokenPair(access_token=access_token, refresh_token=refresh_token)
 
-	@staticmethod
-	def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
-		""" Sets 'refresh_token' in cookies. """
-
-		max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
-		response.set_cookie(
-			key="refresh_token",
-			value=refresh_token,
-			httponly=True,
-			# secure=True,
-			samesite="strict",
-			path="/",
-			max_age=max_age,
-		)
-
-class JWTAccessService(JWTBaseService):
-	def __init__(
-			self,
-			db: AsyncSession,
-			access_token: Optional[str],
-	):
-
-		super().__init__(db)
-		self.access_token = access_token
-
 	async def decode_and_validate_token(
 			self,
 			token_type: str,
@@ -137,6 +139,7 @@ class JWTAccessService(JWTBaseService):
 		"""
 
 		# 1: Decode
+		#    Tokens are instance attrs, chooses which one to validate
 		payload = self.decode_token(token_type)
 
 		# 2: Validate token type
@@ -197,17 +200,20 @@ class JWTAccessService(JWTBaseService):
 
 		return user_id
 
+	@staticmethod
+	def set_refresh_token_cookie(response: Response, refresh_token: str) -> None:
+		""" Sets 'refresh_token' in cookies. """
 
-class JWTPairService(JWTAccessService):
-	def __init__(
-			self,
-			db: AsyncSession,
-			access_token: Optional[str],
-			refresh_token: Optional[str]
-	):
-
-		super().__init__(db, access_token)
-		self.refresh_token = refresh_token
+		max_age = 60 * 60 * 24 * settings.REFRESH_TOKEN_EXPIRE_DAYS
+		response.set_cookie(
+			key="refresh_token",
+			value=refresh_token,
+			httponly=True,
+			# secure=True,
+			samesite="strict",
+			path="/",
+			max_age=max_age,
+		)
 
 
 class TokenBlacklistService:

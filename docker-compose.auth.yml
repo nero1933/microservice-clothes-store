@@ -1,7 +1,10 @@
 services:
   auth-service:
     container_name: auth-service
-    build: ./microservices/auth
+    build:
+      context: .
+      dockerfile: ./microservices/auth/Dockerfile-app
+    image: auth-service:0.1
     command: ["python", "main.py"]
     ports:
       - "8000:8000"
@@ -22,6 +25,11 @@ services:
       - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
       - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.auth.rule=Host(`auth.localhost`) && PathPrefix(`/api/v1/auth`)"
+      - "traefik.http.routers.auth.entrypoints=web"
+      - "traefik.http.services.auth.loadbalancer.server.port=8000"
     depends_on:
       auth-db:
         condition: service_healthy
