@@ -142,9 +142,13 @@ async def authenticate(
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
 ):
 	default_logger.info('Authenticate request')
-	auth_header = request.headers.get("Authorization")
+	auth_header = request.headers.get("Authorization", None)
+	default_logger.info(f" ///// {auth_header}")
 	if not auth_header or not auth_header.startswith("Bearer "):
-		raise CredentialsException()
+		default_logger.error(' _-_-_ Invalid authentication header')
+		response = Response(status_code=401)
+		return response
+		# raise CredentialsException()
 
 	access_token = auth_header.removeprefix("Bearer ").strip()
 	jwt_token_service.access_token = access_token
