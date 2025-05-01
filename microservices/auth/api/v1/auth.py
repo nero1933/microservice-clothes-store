@@ -2,7 +2,7 @@ from typing import Annotated
 
 import jwt
 from fastapi import APIRouter, Response, Depends, Request
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, OAuth2PasswordBearer, HTTPAuthorizationCredentials
 
 import schemas
 from core.exceptions import ExceptionDocFactory
@@ -14,6 +14,7 @@ from loggers import default_logger
 from services import TokenBlacklistService, AuthService
 from services.tokens import JWTTokenService
 
+auth_scheme = HTTPBearer(auto_error=False)
 auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 
 
@@ -35,9 +36,9 @@ async def login(
 	""" Logs in user. """
 
 	auth_data = await auth_service.authenticate(form_data.username, form_data.password)
-	default_logger.info(f"{form_data.username, form_data.password}")
-	if not auth_data:
-		default_logger.info(f'{auth_data}')
+	default_logger.info(f'User logs in: {form_data.username}')
+	if not auth_data: # If RPC returns {} raise 401
+		default_logger.info(f'User failed tp logged in: {form_data.username}')
 		raise CredentialsException()
 
 	user_id = auth_data.get('user_id')
@@ -60,7 +61,8 @@ async def login(
 			description='Authentication Errors'
 		),
 	},
-	status_code=200
+	status_code=200,
+	dependencies=[Depends(auth_scheme)]
 )
 async def logout(
 		response: Response,
@@ -100,7 +102,8 @@ async def logout(
 			description='Authentication Errors'
 		),
 	},
-	status_code=200
+	status_code=200,
+	dependencies=[Depends(auth_scheme)]
 )
 async def refresh(
 		response: Response,
@@ -138,19 +141,16 @@ async def refresh(
 
 @auth_router.get('/authenticate')
 async def authenticate(
-		request: Request,
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
+		credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
-	default_logger.info('Authenticate request')
-	auth_header = request.headers.get("Authorization", None)
-	default_logger.info(f" ///// {auth_header}")
-	if not auth_header or not auth_header.startswith("Bearer "):
-		default_logger.error(' _-_-_ Invalid authentication header')
-		response = Response(status_code=401)
-		return response
-		# raise CredentialsException()
 
-	access_token = auth_header.removeprefix("Bearer ").strip()
+	default_logger.info('Authenticate request')
+	access_token = credentials.credentials if credentials else None
+	if not access_token:
+		default_logger.info('Authenticate token missing')
+		raise CredentialsException()
+
 	jwt_token_service.access_token = access_token
 
 	try:

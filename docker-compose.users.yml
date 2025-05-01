@@ -21,23 +21,6 @@ services:
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_SOCKET=rabbitmq:5672
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.users.rule=Host(`users.localhost`) && PathPrefix(`/api/v1/users`)"
-#      - "traefik.http.routers.users.entrypoints=web"
-##      - "traefik.http.routers.users.middlewares=auth"
-#      - "traefik.http.services.users.loadbalancer.server.port=8000"
-#      - "traefik.http.routers.users.priority=10"
-#
-#      - "traefik.http.routers.users_me.rule=Host(`users.localhost`) && Path(`/api/v1/users/me`)"
-#      - "traefik.http.routers.users_me.middlewares=auth"
-#      - "traefik.http.routers.users_me.entrypoints=web"
-#      - "traefik.http.routers.users_me.priority=100"
-#
-#      - "traefik.http.middlewares.auth.forwardauth.address=http://auth-service:8000/api/v1/auth/authenticate"
-#      - "traefik.http.middlewares.auth.forwardauth.trustforwardheader=true"
-#      - "traefik.http.middlewares.auth.forwardauth.authResponseHeaders=X-User-Id"
-##       - "traefik.http.middlewares.auth.forwardauth.method=POST"
     depends_on:
       users-db:
         condition: service_healthy

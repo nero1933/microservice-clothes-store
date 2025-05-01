@@ -25,11 +25,6 @@ services:
       - JWT_TOKEN_ALGORITHM=${JWT_TOKEN_ALGORITHM}
       - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES}
       - REFRESH_TOKEN_EXPIRE_DAYS=${REFRESH_TOKEN_EXPIRE_DAYS}
-#    labels:
-#      - "traefik.enable=true"
-#      - "traefik.http.routers.auth.rule=Host(`auth.localhost`) && PathPrefix(`/api/v1/auth`)"
-#      - "traefik.http.routers.auth.entrypoints=web"
-#      - "traefik.http.services.auth.loadbalancer.server.port=8000"
     depends_on:
       auth-db:
         condition: service_healthy

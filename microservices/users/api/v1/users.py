@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Request
+from fastapi.security import HTTPBearer
 from sqlalchemy import select
 
 import schemas
@@ -10,6 +11,7 @@ from models import User
 from services import RegisterService
 from exceptions.custom_exceptions import EmailExistsException, BadRequestException
 
+auth_scheme = HTTPBearer()
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
 
 
@@ -36,10 +38,9 @@ async def register(
 	return schemas.UserRead.model_validate(user)
 
 
-@users_router.get('/me')
+@users_router.get('/me', dependencies=[Depends(auth_scheme)])
 async def me(request: Request, db: AsyncSessionLocal = Depends(get_async_session)):
 	user_id = request.headers.get('X-User-Id')
-	default_logger.info(f" <_> {user_id}")
 	stmt = select(User).where(User.id == user_id)
 	result = await db.execute(stmt)
 	r = result.scalar_one_or_none()
