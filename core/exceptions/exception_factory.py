@@ -1,12 +1,12 @@
 from typing import Optional, Type
 
-from exceptions.custom_exceptions import HTTPCustomException
+from fastapi import HTTPException
 
 
 class ExceptionDocFactory:
 	@staticmethod
 	def from_exception(
-			exc_cls: Type[HTTPCustomException],
+			exc_cls: Type[HTTPException],
 			description: Optional[str] = None
 	):
 		detail = getattr(exc_cls, 'detail', 'Error')
@@ -23,7 +23,7 @@ class ExceptionDocFactory:
 
 	@staticmethod
 	def from_multiple_exceptions(
-			exc_cls_tup: tuple[Type[HTTPCustomException], ...],
+			exc_cls_tup: tuple[Type[HTTPException], ...],
 			description: str,
 	):
 		examples = {}

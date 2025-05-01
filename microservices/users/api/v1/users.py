@@ -6,10 +6,9 @@ import schemas
 from core.db import get_async_session, AsyncSessionLocal
 from core.exceptions import ExceptionDocFactory
 from dependencies import get_register_service
-from loggers import default_logger
 from models import User
 from services import RegisterService
-from exceptions.custom_exceptions import EmailExistsException, BadRequestException
+from core.exceptions.custom_http_exception import EmailExistsException, BadRequestException
 
 auth_scheme = HTTPBearer()
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])

@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from config import settings
+from exceptions.exceptions import JWTTokenValidationException, DuplicateJTIException
 from loggers import default_logger
 from models import TokenBlacklist
 
@@ -146,7 +147,7 @@ class JWTTokenService:
 		token_type = payload.get("type")
 		if not token_type or token_type not in self.ALLOWED_TOKEN_TYPES:
 			default_logger.warning(f'{token_type} is not a valid token')
-			raise ValueError("Token is invalid")
+			raise JWTTokenValidationException("Token is invalid")
 
 		# 3: Additional check for refresh token only
 		if token_type == 'refresh' and validate_jti:
@@ -155,33 +156,33 @@ class JWTTokenService:
 			jti_str = payload.get("jti")
 			if not jti_str:
 				default_logger.warning('"jti" is missing')
-				raise ValueError("Token is invalid")
+				raise JWTTokenValidationException("Token is invalid")
 
 			# 3.2 Check if token is blacklisted 'jti'
 			try:
 				jti = uuid.UUID(jti_str)
 			except ValueError:
 				default_logger.warning('"jti" is invalid')
-				raise ValueError("Token is invalid")
+				raise JWTTokenValidationException("Token is invalid")
 
 			stmt = select(TokenBlacklist).where(TokenBlacklist.jti == jti)
 			result = await self.db.execute(stmt)
 			jti_in_db = result.scalar_one_or_none()
 			if jti_in_db:
 				default_logger.warning('Token is blacklisted')
-				raise ValueError("Token is invalid")
+				raise DuplicateJTIException("Token is invalid")
 
 		# 4: Validate 'sub'
 		user_id_str = payload.get("sub")
 		if not user_id_str:
 			default_logger.warning('"sub" is missing')
-			raise ValueError("Token is invalid")
+			raise JWTTokenValidationException("Token is invalid")
 
 		try:
 			user_id = uuid.UUID(user_id_str)
 		except ValueError:
 			default_logger.warning('"user_id" is invalid')
-			raise ValueError("Token is invalid")
+			raise JWTTokenValidationException("Token is invalid")
 
 		return payload
 

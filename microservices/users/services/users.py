@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.crud import mixins
 from core.crud.base import M, BaseCRUD
-from exceptions.custom_exceptions import EmailExistsException
+# from core.exceptions.custom_http_exception import EmailExistsException
 from loggers import default_logger
 from models import User, RoleEnum
 import schemas
@@ -43,7 +43,8 @@ class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
 		except IntegrityError as e:
 			await self.db.rollback()
 			if 'unique constraint' in str(e.orig).lower() and 'email' in str(e.orig):
-				raise EmailExistsException()
+				# raise EmailExistsException()
+				pass
 
 			raise e
 

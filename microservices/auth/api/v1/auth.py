@@ -1,18 +1,20 @@
 from typing import Annotated
 
 import jwt
-from fastapi import APIRouter, Response, Depends, Request
-from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, OAuth2PasswordBearer, HTTPAuthorizationCredentials
+from fastapi import APIRouter, Response, Depends, Cookie
+from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, \
+	HTTPAuthorizationCredentials
 
 import schemas
 from core.exceptions import ExceptionDocFactory
-from dependencies import  get_token_blacklist_service, get_auth_service
-from dependencies.tokens import get_jwt_token_service
-from exceptions.custom_exceptions import CredentialsException, InactiveUserException, NotAuthenticatedException, \
-	RefreshTokenMissingException, ExpiredSignatureException
+from exceptions.exceptions import JWTTokenValidationException
 from loggers import default_logger
 from services import TokenBlacklistService, AuthService
 from services.tokens import JWTTokenService
+from dependencies import  get_token_blacklist_service, get_auth_service, \
+	get_jwt_token_service
+from exceptions.http import CredentialsHTTPException, ExpiredSignatureHTTPException, \
+	RefreshTokenMissingHTTPException, NotAuthenticatedHTTPException
 
 auth_scheme = HTTPBearer(auto_error=False)
 auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
@@ -21,10 +23,7 @@ auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 @auth_router.post(
 	"/login",
 	response_model=schemas.TokenRead,
-	responses={
-		401: ExceptionDocFactory.from_exception(CredentialsException),
-		# 403: ExceptionDocFactory.from_exception(InactiveUserException),
-	},
+	responses={401: ExceptionDocFactory.from_exception(CredentialsHTTPException)},
 	status_code=200
 )
 async def login(
@@ -36,10 +35,10 @@ async def login(
 	""" Logs in user. """
 
 	auth_data = await auth_service.authenticate(form_data.username, form_data.password)
-	default_logger.info(f'User logs in: {form_data.username}')
+	default_logger.info(f'/login * User logs in: {form_data.username}')
 	if not auth_data: # If RPC returns {} raise 401
-		default_logger.info(f'User failed tp logged in: {form_data.username}')
-		raise CredentialsException()
+		default_logger.warning(f'/login * User failed to log in: {form_data.username}')
+		raise CredentialsHTTPException()
 
 	user_id = auth_data.get('user_id')
 
@@ -57,7 +56,7 @@ async def login(
 	"/logout",
 	responses={
 		401: ExceptionDocFactory.from_multiple_exceptions(
-			(NotAuthenticatedException, RefreshTokenMissingException),
+			(NotAuthenticatedHTTPException, RefreshTokenMissingHTTPException),
 			description='Authentication Errors'
 		),
 	},
@@ -66,17 +65,17 @@ async def login(
 )
 async def logout(
 		response: Response,
+		credentials: HTTPAuthorizationCredentials = Depends(auth_scheme),
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
 		token_blacklist_service: TokenBlacklistService = Depends(get_token_blacklist_service),
+		refresh_token: str = Cookie(None)
 ):
 	""" Logouts user, blacklists tokens. """
 
-	#
-	# GET COOKIE, CHECK, SET TO jwt_token_service
-	#
+	if not refresh_token:
+		raise RefreshTokenMissingHTTPException()
 
-	if not jwt_token_service.refresh_token:
-		raise RefreshTokenMissingException()
+	jwt_token_service.refresh_token = refresh_token
 
 	try:
 		# 'validate_jti=True' will check if the 'jti' is in TokenBlacklist,
@@ -87,7 +86,7 @@ async def logout(
 		)
 		await token_blacklist_service.add(payload.get('jti'))
 	except ValueError:
-		pass
+		default_logger.info(f"/logout * ValueError when validating refresh token")
 
 	response.delete_cookie(key="refresh_token")
 	return {"message": "Logged out successfully."}
@@ -98,7 +97,7 @@ async def logout(
 	response_model=schemas.TokenRead,
 	responses={
 		401: ExceptionDocFactory.from_multiple_exceptions(
-			(CredentialsException, RefreshTokenMissingException),
+			(CredentialsHTTPException, RefreshTokenMissingHTTPException),
 			description='Authentication Errors'
 		),
 	},
@@ -117,7 +116,7 @@ async def refresh(
 	#
 
 	if not jwt_token_service.refresh_token:
-		raise RefreshTokenMissingException()
+		raise RefreshTokenMissingHTTPException()
 
 	try:
 		# Decode and validate payload of 'refresh_token'
@@ -125,7 +124,7 @@ async def refresh(
 		# Blacklist old 'refresh_token'
 		await token_blacklist_service.add(payload.get('jti'))
 	except ValueError:
-		raise CredentialsException()
+		raise CredentialsHTTPException()
 
 
 	# Create new tokens
@@ -145,21 +144,30 @@ async def authenticate(
 		credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
 
-	default_logger.info('Authenticate request')
 	access_token = credentials.credentials if credentials else None
 	if not access_token:
-		default_logger.info('Authenticate token missing')
-		raise CredentialsException()
+		default_logger.warning('/authenticate * Missing access token')
+		raise CredentialsHTTPException()
 
 	jwt_token_service.access_token = access_token
 
 	try:
 		payload = await jwt_token_service.decode_and_validate_token('access_token')
-	except ValueError:
-		raise CredentialsException()
+	except JWTTokenValidationException:
+		default_logger.warning(
+			'/authenticate * Invalid access token'
+		)
+		raise CredentialsHTTPException()
 	except jwt.ExpiredSignatureError:
-		raise ExpiredSignatureException()
+		default_logger.warning(
+			'/authenticate * Expired access token'
+		)
+		raise ExpiredSignatureHTTPException()
 
 	response = Response(status_code=200)
-	response.headers['X-User-Id'] = payload['sub']
+	user_id = payload['sub']
+	response.headers['X-User-Id'] = user_id
+	default_logger.info(
+		f'/authenticate * Authenticated user_id: {user_id}'
+	)
 	return response

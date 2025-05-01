@@ -1,1 +1,2 @@
 from .exception_factory import ExceptionDocFactory
+from .custom_http_exeption import CustomHTTPException

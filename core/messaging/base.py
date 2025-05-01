@@ -1,9 +1,5 @@
-from abc import ABC
-
 from aio_pika import connect_robust
-from aio_pika.abc import AbstractChannel, AbstractRobustConnection, AbstractExchange, \
-	AbstractQueue
-from aio_pika.patterns import RPC
+from aio_pika.abc import AbstractChannel, AbstractRobustConnection
 
 from loggers import default_logger
 
@@ -36,9 +32,9 @@ class BaseMessagingConnection:
 					url,
 					client_properties={"connection_name": cls._connection_name},
 				)
-				default_logger.info(f"Successfully connected to RabbitMQ server: {url}")
+				# default_logger.info(f"Successfully connected to RabbitMQ server: {url}")
 			except Exception as e:
-				default_logger.error(f"Error connecting to RabbitMQ: {e}")
+				# default_logger.error(f"Error connecting to RabbitMQ: {e}")
 				raise e
 
 		return cls._connection
@@ -51,7 +47,7 @@ class BaseMessagingConnection:
 				default_logger.error(error)
 				raise ValueError(error)
 
-			default_logger.info(f"Reconnecting to RabbitMQ server: {cls._url}")
+			# default_logger.info(f"Reconnecting to RabbitMQ server: {cls._url}")
 			connection = await cls._connect(cls._url)
 			return connection
 
