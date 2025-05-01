@@ -7,14 +7,14 @@ from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, \
 
 import schemas
 from core.exceptions import ExceptionDocFactory
-from exceptions.exceptions import JWTTokenValidationException
-from loggers import default_logger
+from exceptions.exceptions import JWTTokenValidationException, DuplicateJTIException
+from core.loggers import log
 from services import TokenBlacklistService, AuthService
 from services.tokens import JWTTokenService
 from dependencies import  get_token_blacklist_service, get_auth_service, \
 	get_jwt_token_service
 from exceptions.http import CredentialsHTTPException, ExpiredSignatureHTTPException, \
-	RefreshTokenMissingHTTPException, NotAuthenticatedHTTPException
+	RefreshTokenMissingHTTPException
 
 auth_scheme = HTTPBearer(auto_error=False)
 auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
@@ -35,9 +35,9 @@ async def login(
 	""" Logs in user. """
 
 	auth_data = await auth_service.authenticate(form_data.username, form_data.password)
-	default_logger.info(f'/login * User logs in: {form_data.username}')
+	log.info(f'/login User logs in: {form_data.username}')
 	if not auth_data: # If RPC returns {} raise 401
-		default_logger.warning(f'/login * User failed to log in: {form_data.username}')
+		log.warning(f'/login User failed to log in: {form_data.username}')
 		raise CredentialsHTTPException()
 
 	user_id = auth_data.get('user_id')
@@ -56,7 +56,7 @@ async def login(
 	"/logout",
 	responses={
 		401: ExceptionDocFactory.from_multiple_exceptions(
-			(NotAuthenticatedHTTPException, RefreshTokenMissingHTTPException),
+			(CredentialsHTTPException, RefreshTokenMissingHTTPException),
 			description='Authentication Errors'
 		),
 	},
@@ -72,6 +72,12 @@ async def logout(
 ):
 	""" Logouts user, blacklists tokens. """
 
+	# To access endpoint 'access_token' is required but token wouldn't be validated
+	access_token = credentials.credentials if credentials else None
+	if not access_token:
+		log.warning('/logout Missing access token')
+		raise CredentialsHTTPException()
+
 	if not refresh_token:
 		raise RefreshTokenMissingHTTPException()
 
@@ -85,8 +91,8 @@ async def logout(
 			'refresh_token', validate_jti=False
 		)
 		await token_blacklist_service.add(payload.get('jti'))
-	except ValueError:
-		default_logger.info(f"/logout * ValueError when validating refresh token")
+	except (JWTTokenValidationException, DuplicateJTIException) as e:
+		log.info(f"/logout ValueError when validating refresh token: {e}")
 
 	response.delete_cookie(key="refresh_token")
 	return {"message": "Logged out successfully."}
@@ -138,15 +144,30 @@ async def refresh(
 	return schemas.TokenRead(access_token=access_token, token_type="bearer")
 
 
-@auth_router.get('/authenticate')
+@auth_router.get(
+	'/authenticate',
+	responses={
+		401: ExceptionDocFactory.from_multiple_exceptions(
+			(CredentialsHTTPException, ExpiredSignatureHTTPException),
+			description='Authentication Errors'
+		),
+	},
+	status_code=200,
+)
 async def authenticate(
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
 		credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
+	"""
+	Validates the provided JWT token to authenticate the user.
+
+	Used internally by the API Gateway (AuthForward) to identify the user and
+	inject their `user_id` into the request headers for downstream services.
+	"""
 
 	access_token = credentials.credentials if credentials else None
 	if not access_token:
-		default_logger.warning('/authenticate * Missing access token')
+		log.warning('/authenticate Missing access token')
 		raise CredentialsHTTPException()
 
 	jwt_token_service.access_token = access_token
@@ -154,20 +175,14 @@ async def authenticate(
 	try:
 		payload = await jwt_token_service.decode_and_validate_token('access_token')
 	except JWTTokenValidationException:
-		default_logger.warning(
-			'/authenticate * Invalid access token'
-		)
+		log.warning('/authenticate Invalid access token')
 		raise CredentialsHTTPException()
 	except jwt.ExpiredSignatureError:
-		default_logger.warning(
-			'/authenticate * Expired access token'
-		)
+		log.warning('/authenticate Expired access token')
 		raise ExpiredSignatureHTTPException()
 
 	response = Response(status_code=200)
-	user_id = payload['sub']
+	user_id = str(payload['sub'])
 	response.headers['X-User-Id'] = user_id
-	default_logger.info(
-		f'/authenticate * Authenticated user_id: {user_id}'
-	)
+	log.info(f'/authenticate Authenticated user_id: {user_id}')
 	return response

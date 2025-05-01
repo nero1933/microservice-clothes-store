@@ -5,8 +5,8 @@ from fastapi import FastAPI
 from api.v1 import users_router
 
 app = FastAPI(
-    docs_url="/api/v1/users/docs",
-    openapi_url="/api/v1/users/openapi.json"
+    docs_url="/api/v1/docs",
+    openapi_url="/api/v1/openapi.json"
 )
 
 app.include_router(users_router)

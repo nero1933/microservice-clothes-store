@@ -1,7 +1,9 @@
+import asyncio
+
 from aio_pika import connect_robust
 from aio_pika.abc import AbstractChannel, AbstractRobustConnection
 
-from loggers import default_logger
+from ..loggers import log
 
 
 class BaseMessagingConnection:
@@ -11,31 +13,38 @@ class BaseMessagingConnection:
 	_channel: AbstractChannel | None = None
 
 	@classmethod
-	async def setup_connection(cls, url: str | None = None) -> None:
+	async def setup_connection(cls, url: str | None = None, max_attempts: int = 10) -> None:
 		if url is None:
 			error = "url cannot be None"
-			default_logger.error(error)
+			log.error(error)
 			raise ValueError(error)
 
 		cls._url = url
 
-		try:
-			await cls._connect(url)
-		except Exception as e:
-			default_logger.error(e)
+		for attempt in range(1, max_attempts + 1):
+			try:
+				await cls._connect(url)
+				if cls._connection and not cls._connection.is_closed:
+					log.info("Successfully connected to RabbitMQ")
+					break
+			except Exception as e:
+				log.warning(
+					f"[{attempt}/{max_attempts}] "
+					f"Failed to connect to RabbitMQ: {e} "
+					f"Retrying in 5 seconds...")
+				await asyncio.sleep(5)
+
+		if not cls._connection:
+			log.error("Exceeded max connection attempts to RabbitMQ")
+			raise ConnectionError("Could not connect to RabbitMQ after several attempts")
 
 	@classmethod
 	async def _connect(cls, url: str | None = None) -> AbstractRobustConnection:
 		if cls._connection is None or cls._connection.is_closed:
-			try:
-				cls._connection = await connect_robust(
-					url,
-					client_properties={"connection_name": cls._connection_name},
-				)
-				# default_logger.info(f"Successfully connected to RabbitMQ server: {url}")
-			except Exception as e:
-				# default_logger.error(f"Error connecting to RabbitMQ: {e}")
-				raise e
+			cls._connection = await connect_robust(
+				url,
+				client_properties={"connection_name": cls._connection_name},
+			)
 
 		return cls._connection
 
@@ -44,10 +53,9 @@ class BaseMessagingConnection:
 		if cls._connection is None or cls._connection.is_closed:
 			if cls._url is None:
 				error = "No url provided (Probably wasn't connected at app startup)"
-				default_logger.error(error)
+				log.error(error)
 				raise ValueError(error)
 
-			# default_logger.info(f"Reconnecting to RabbitMQ server: {cls._url}")
 			connection = await cls._connect(cls._url)
 			return connection
 

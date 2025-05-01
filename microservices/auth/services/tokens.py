@@ -13,7 +13,7 @@ from sqlalchemy.exc import IntegrityError
 
 from config import settings
 from exceptions.exceptions import JWTTokenValidationException, DuplicateJTIException
-from loggers import default_logger
+from core.loggers import log
 from models import TokenBlacklist
 
 TokenPair = namedtuple("TokenPair", ["access_token", "refresh_token"])
@@ -90,13 +90,13 @@ class JWTTokenService:
 		""" Decodes JWT token. If expired, raises exception """
 
 		if not token_type in self.ALLOWED_TOKEN_TYPES:
-			default_logger.warning(f'{token_type} is not a valid token')
+			log.warning(f'{token_type} is not a valid token')
 			raise ValueError("Token is invalid")
 
 		token = getattr(self, '_' + token_type)
 
 		if not token:
-			default_logger.warning(f'No token provided for type {token_type}')
+			log.warning(f'No token provided for type {token_type}')
 			raise ValueError("Token is invalid")
 
 		try:
@@ -106,11 +106,11 @@ class JWTTokenService:
 				algorithms=[self.JWT_TOKEN_ALGORITHM]
 			)
 		except ExpiredSignatureError:
-			default_logger.warning(f'Token has expired')
+			log.warning(f'Token has expired')
 			raise ExpiredSignatureError("Token has expired")
-		except PyJWTError:
-			default_logger.warning(f"Token can't be decoded, PyJWTError")
-			raise ValueError("Token is invalid")
+		except PyJWTError as e:
+			log.warning(f"Token can't be decoded, PyJWTError: {e}")
+			raise JWTTokenValidationException("Token is invalid")
 
 	def obtain_token_pair(self, sub: str) -> TokenPair:
 		""" Creates and returns access and refresh JWT tokens. """
@@ -146,7 +146,7 @@ class JWTTokenService:
 		# 2: Validate token type
 		token_type = payload.get("type")
 		if not token_type or token_type not in self.ALLOWED_TOKEN_TYPES:
-			default_logger.warning(f'{token_type} is not a valid token')
+			log.warning(f'{token_type} is not a valid token')
 			raise JWTTokenValidationException("Token is invalid")
 
 		# 3: Additional check for refresh token only
@@ -155,33 +155,33 @@ class JWTTokenService:
 			# 3.1: Validate 'jti'
 			jti_str = payload.get("jti")
 			if not jti_str:
-				default_logger.warning('"jti" is missing')
+				log.warning('"jti" is missing')
 				raise JWTTokenValidationException("Token is invalid")
 
 			# 3.2 Check if token is blacklisted 'jti'
 			try:
 				jti = uuid.UUID(jti_str)
 			except ValueError:
-				default_logger.warning('"jti" is invalid')
+				log.warning('"jti" is invalid')
 				raise JWTTokenValidationException("Token is invalid")
 
 			stmt = select(TokenBlacklist).where(TokenBlacklist.jti == jti)
 			result = await self.db.execute(stmt)
 			jti_in_db = result.scalar_one_or_none()
 			if jti_in_db:
-				default_logger.warning('Token is blacklisted')
+				log.warning('Token is blacklisted')
 				raise DuplicateJTIException("Token is invalid")
 
 		# 4: Validate 'sub'
 		user_id_str = payload.get("sub")
 		if not user_id_str:
-			default_logger.warning('"sub" is missing')
+			log.warning('"sub" is missing')
 			raise JWTTokenValidationException("Token is invalid")
 
 		try:
 			user_id = uuid.UUID(user_id_str)
 		except ValueError:
-			default_logger.warning('"user_id" is invalid')
+			log.warning('"user_id" is invalid')
 			raise JWTTokenValidationException("Token is invalid")
 
 		return payload
@@ -196,7 +196,7 @@ class JWTTokenService:
 		user_id = payload.get('sub')
 
 		if token_type != payload.get('type'):
-			default_logger.warning(f'Token type is invalid: {token_type}')
+			log.warning(f'Token type is invalid: {token_type}')
 			raise ValueError("Token is invalid")
 
 		return user_id
@@ -229,8 +229,8 @@ class TokenBlacklistService:
 			await self.db.commit()
 		except IntegrityError:
 			await self.db.rollback()
-			default_logger.warning("Can't add jti because it already exists")
-			raise ValueError("Can't add jti because it already exists")
+			log.warning("Can't add jti because it already exists")
+			raise DuplicateJTIException("Can't add jti because it already exists")
 
 	async def is_blacklisted(self, jti: uuid.UUID) -> bool:
 		"""Checks if the token JTI is blacklisted."""

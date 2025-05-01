@@ -3,7 +3,7 @@ from abc import abstractmethod, ABC
 from aio_pika.patterns import RPC
 
 from core.messaging import BaseMessagingConnection
-from loggers import default_logger
+from ..loggers import log
 
 
 class RPCCreator(BaseMessagingConnection, ABC):
@@ -40,7 +40,7 @@ class RPCWorkerABC(RPCSingleton, RPCCreator, ABC):
 	async def register(cls, *args, **kwargs) -> None:
 		if cls._method_name is None:
 			error = 'cls._method_name is None'
-			default_logger.error(error)
+			log.error(error)
 			raise ValueError(error)
 
 		rpc = await cls.get_rpc()

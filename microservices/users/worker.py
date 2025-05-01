@@ -2,7 +2,7 @@ import asyncio
 
 from config import settings
 from core.messaging import BaseMessagingConnection
-from loggers import default_logger
+from core.loggers import log
 from messaging.workers.rpc import RPCUsersGetAuthData
 
 
@@ -20,5 +20,5 @@ async def main():
 
 
 if __name__ == "__main__":
-	default_logger.info("* * Worker started")
+	log.info("Worker started")
 	asyncio.run(main())

@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.crud import mixins
 from core.crud.base import M, BaseCRUD
 # from core.exceptions.custom_http_exception import EmailExistsException
-from loggers import default_logger
+from core.loggers import log
 from models import User, RoleEnum
 import schemas
 from utils import password as p
@@ -102,7 +102,7 @@ class LoginService:
 		Returns {"user_id": user.id, "role": user.role}
 		"""
 
-		default_logger.info(f'[x] -> Trying to authenticate user: {username}')
+		log.info(f'[x] -> Trying to authenticate user: {username}')
 		data = {}
 		if '@' in username:
 			field = 'email'
@@ -112,21 +112,21 @@ class LoginService:
 		user = await self.get_object(field, username)
 
 		if not user:
-			default_logger.info(f'[x] -> No such user: {username}')
+			log.info(f'[x] -> No such user: {username}')
 			return data
 
 		if not p.verify_password(password, user.hashed_password):
-			default_logger.info(f'[x] -> Wrong password for user: {username}')
+			log.info(f'[x] -> Wrong password for user: {username}')
 			return data
 
 		permission = self.check_permission(user)
 		if not permission:
-			default_logger.info(f'[x] -> No permission for user: {username}')
+			log.info(f'[x] -> No permission for user: {username}')
 			return data
 
 		data.setdefault('user_id', str(user.id)) # UUID to str
 		data.setdefault('role', str(user.role.value))  # UUID to str
-		default_logger.info(f'[x] -> Authentication data: {data}')
+		log.info(f'[x] -> Authentication data: {data}')
 		return data
 
 

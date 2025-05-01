@@ -8,7 +8,7 @@ from core.exceptions import ExceptionDocFactory
 from dependencies import get_register_service
 from models import User
 from services import RegisterService
-from core.exceptions.custom_http_exception import EmailExistsException, BadRequestException
+from exceptions.http import CustomHTTPException, BadRequestHTTPException
 
 auth_scheme = HTTPBearer()
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
@@ -19,7 +19,7 @@ users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
 	response_model=schemas.UserRead,
 	responses={
 		400: ExceptionDocFactory.from_multiple_exceptions(
-			(EmailExistsException, BadRequestException),
+			(CustomHTTPException, BadRequestHTTPException),
 			description='Email Error'
 		),
 	},

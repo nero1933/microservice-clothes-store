@@ -1,7 +1,7 @@
 http:
   routers:
     auth:
-      rule: "Host(`auth.localhost`) && PathPrefix(`/api/v1/auth`)"
+      rule: "Host(`auth.localhost`)"
       service: auth
       entryPoints:
         - web
