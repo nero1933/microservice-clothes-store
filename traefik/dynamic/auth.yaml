@@ -1,0 +1,13 @@
+http:
+  routers:
+    auth:
+      rule: "Host(`auth.localhost`) && PathPrefix(`/api/v1/auth`)"
+      service: auth
+      entryPoints:
+        - web
+
+  services:
+    auth:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:8000"

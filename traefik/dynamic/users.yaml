@@ -1,0 +1,31 @@
+http:
+  routers:
+    users:
+      rule: "Host(`users.localhost`) && PathPrefix(`/api/v1/users`)"
+      service: users
+      entryPoints:
+        - web
+      priority: 10
+
+    users-private:
+      rule: "Host(`users.localhost`) && Path(`/api/v1/users/me`)"
+      service: users
+      entryPoints:
+        - web
+      priority: 100
+      middlewares:
+        - auth
+
+  services:
+    users:
+      loadBalancer:
+        servers:
+          - url: "http://users-service:8000"
+
+  middlewares:
+    auth:
+      forwardAuth:
+        address: "http://auth-service:8000/api/v1/auth/authenticate"
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-User-Id
