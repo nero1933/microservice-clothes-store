@@ -93,16 +93,16 @@ class LoginService:
 		user = await self.get_object(username)
 
 		if not user:
-			log.info(f'[!] -> No such user: {username}')
+			log.info(f'[!] RPC | No such user: <{username}>')
 			return data
 
 		if not p.verify_password(password, user.hashed_password):
-			log.info(f'[!] -> Wrong password for user: {username}')
+			log.info(f'[!] RPC | Wrong password for user: <{username}>')
 			return data
 
 		permission = self.check_permission(user)
 		if not permission:
-			log.info(f'[!] -> No permission for user: {username}')
+			log.info(f'[!] RPC | No permission for user: <{username}>')
 			return data
 
 		data.setdefault('user_id', str(user.id)) # UUID to str

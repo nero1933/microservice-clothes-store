@@ -30,6 +30,7 @@ class BaseMessagingConnection(BaseConnection):
 		if cls._connection and not cls._connection.is_closed:
 			await cls._connection.close()
 			cls._connection = None
+			log.info(f"Disconnected from {cls._name}")
 
 	@classmethod
 	async def _create_channel(cls):

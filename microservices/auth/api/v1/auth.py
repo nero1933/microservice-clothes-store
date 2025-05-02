@@ -10,9 +10,9 @@ from core.exceptions import ExceptionDocFactory
 from core.loggers import log
 from core.exceptions.http import CredentialsHTTPException
 from exceptions.exceptions import JWTTokenValidationException, DuplicateJTIException
-from services import TokenBlacklistService, AuthService
+from services import TokenBlacklistService, AuthRPCService
 from services.tokens import JWTTokenService
-from dependencies import  get_token_blacklist_service, get_auth_service, \
+from dependencies import  get_token_blacklist_service, get_auth_rpc_service, \
 	get_jwt_token_service
 from exceptions.http import ExpiredSignatureHTTPException, \
 	RefreshTokenMissingHTTPException
@@ -30,7 +30,7 @@ auth_router = APIRouter(prefix='/api/v1/auth', tags=['auth'])
 async def login(
 		response: Response,
 		form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
-		auth_service: AuthService = Depends(get_auth_service),
+		auth_rpc_service: AuthRPCService = Depends(get_auth_rpc_service),
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
 ) -> schemas.TokenRead:
 	"""
@@ -41,10 +41,10 @@ async def login(
 	\n - Sets the `refresh_token` as an HttpOnly cookie.
 	"""
 
-	auth_data = await auth_service.authenticate(form_data.username, form_data.password)
-	log.info(f'/login User logs in: <{form_data.username}>')
+	auth_data = await auth_rpc_service.authenticate(form_data.username, form_data.password)
+	log.info(f'/login * User logs in: <{form_data.username}>')
 	if not auth_data: # If RPC returns {} raise 401
-		log.warning(f'/login User failed to log in: {form_data.username}')
+		log.warning(f'/login * User failed to log in: <{form_data.username}>')
 		raise CredentialsHTTPException()
 
 	user_id = auth_data.get('user_id')
@@ -89,7 +89,7 @@ async def logout(
 	# To access endpoint 'access_token' is required but token wouldn't be validated
 	access_token = credentials.credentials if credentials else None
 	if not access_token:
-		log.warning("/logout Missing 'access_token'")
+		log.warning("/logout * Missing 'access_token'")
 		raise CredentialsHTTPException()
 
 	if not refresh_token:
@@ -101,7 +101,7 @@ async def logout(
 		payload = await jwt_token_service.decode_and_validate_token('refresh_token')
 		await token_blacklist_service.add(payload.get('jti'))
 	except (JWTTokenValidationException, DuplicateJTIException) as e:
-		log.info(f"/logout Error when validating 'refresh_token': {e}")
+		log.info(f"/logout * Error when validating 'refresh_token': {e}")
 
 	response.delete_cookie(key="refresh_token")
 	return {"message": "Logged out successfully."}
@@ -136,7 +136,7 @@ async def refresh(
 	"""
 
 	if not refresh_token:
-		log.warning("/refresh Missing 'refresh_token'")
+		log.warning("/refresh * Missing 'refresh_token'")
 		raise RefreshTokenMissingHTTPException()
 
 	jwt_token_service.refresh_token = refresh_token
@@ -186,7 +186,7 @@ async def authenticate(
 
 	access_token = credentials.credentials if credentials else None
 	if not access_token:
-		log.warning("/authenticate Missing 'access_token'")
+		log.warning("/authenticate * Missing 'access_token'")
 		raise CredentialsHTTPException()
 
 	jwt_token_service.access_token = access_token
@@ -194,14 +194,14 @@ async def authenticate(
 	try:
 		payload = await jwt_token_service.decode_and_validate_token('access_token')
 	except JWTTokenValidationException:
-		log.warning("/authenticate Invalid 'access_token'")
+		log.warning("/authenticate * Invalid 'access_token'")
 		raise CredentialsHTTPException()
 	except jwt.ExpiredSignatureError:
-		log.warning("/authenticate Expired 'access_token'")
+		log.warning("/authenticate * Expired 'access_token'")
 		raise ExpiredSignatureHTTPException()
 
 	response = Response(status_code=200)
 	user_id = str(payload['sub'])
 	response.headers['X-User-Id'] = user_id
-	log.info(f'/authenticate Authenticated user_id: <{user_id}>')
+	log.info(f'/authenticate * Authenticated user_id: <{user_id}>')
 	return response

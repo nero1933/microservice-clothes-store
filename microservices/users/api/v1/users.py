@@ -52,12 +52,12 @@ async def me(
 ):
 	user_id = request.headers.get('X-User-Id', None)
 	if not user_id:
-		log.warning("/me Missing 'X-User-Id' header")
+		log.warning("/me * Missing 'X-User-Id' header")
 		raise BadRequestHTTPException()
 
 	user = await user_me_service.retrieve(user_id)
 	if not user:
-		log.warning('/me User not found')
+		log.warning('/me * User not found')
 		raise NotFoundHTTPException()
 
 	return schemas.UserRead.model_validate(user)

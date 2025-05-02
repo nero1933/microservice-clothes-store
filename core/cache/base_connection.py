@@ -14,7 +14,6 @@ class BaseCacheConnection(BaseConnection):
 		if cls._connection is None:
 			cls._connection = await Redis.from_url(
 				url=url,
-				#"redis://users-redis:6379/1",
 				decode_responses=True
 			)
 			await cls._connection.ping()
@@ -38,3 +37,4 @@ class BaseCacheConnection(BaseConnection):
 	async def disconnect(cls) -> None:
 		await cls._connection.close()
 		await cls._connection.connection_pool.disconnect()
+		log.info(f"Disconnected from {cls._name}")

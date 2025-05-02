@@ -1,3 +1,2 @@
-from .auth import AuthService
+from .auth import AuthRPCService
 from .tokens import JWTTokenService, TokenBlacklistService
-
