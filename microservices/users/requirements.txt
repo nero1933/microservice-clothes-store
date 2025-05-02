@@ -12,3 +12,4 @@ httpx
 aio-pika
 prometheus_fastapi_instrumentator
 prometheus_client
+redis

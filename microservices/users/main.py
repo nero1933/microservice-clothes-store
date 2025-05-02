@@ -1,5 +1,6 @@
 import uvicorn
 from fastapi import FastAPI
+from core.loggers import sql_logger
 # from prometheus_fastapi_instrumentator import Instrumentator
 
 from api.v1 import users_router

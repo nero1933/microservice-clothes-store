@@ -7,13 +7,14 @@ from fastapi.security import OAuth2PasswordRequestForm, HTTPBearer, \
 
 import schemas
 from core.exceptions import ExceptionDocFactory
-from exceptions.exceptions import JWTTokenValidationException, DuplicateJTIException
 from core.loggers import log
+from core.exceptions.http import CredentialsHTTPException
+from exceptions.exceptions import JWTTokenValidationException, DuplicateJTIException
 from services import TokenBlacklistService, AuthService
 from services.tokens import JWTTokenService
 from dependencies import  get_token_blacklist_service, get_auth_service, \
 	get_jwt_token_service
-from exceptions.http import CredentialsHTTPException, ExpiredSignatureHTTPException, \
+from exceptions.http import ExpiredSignatureHTTPException, \
 	RefreshTokenMissingHTTPException
 
 auth_scheme = HTTPBearer(auto_error=False)
@@ -32,17 +33,23 @@ async def login(
 		auth_service: AuthService = Depends(get_auth_service),
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
 ) -> schemas.TokenRead:
-	""" Logs in user. """
+	"""
+	   Authenticates a user with their `username` and `password`, issues a new JWT token pair.
+	\n User can authenticate with `username` or `email`
+	\n On successful authentication:
+	\n - Returns an `access_token` in the response body.
+	\n - Sets the `refresh_token` as an HttpOnly cookie.
+	"""
 
 	auth_data = await auth_service.authenticate(form_data.username, form_data.password)
-	log.info(f'/login User logs in: {form_data.username}')
+	log.info(f'/login User logs in: <{form_data.username}>')
 	if not auth_data: # If RPC returns {} raise 401
 		log.warning(f'/login User failed to log in: {form_data.username}')
 		raise CredentialsHTTPException()
 
 	user_id = auth_data.get('user_id')
 
-	# Create tokens
+	# Create tokens with 'sub'='user_id'
 	access_token, refresh_token = jwt_token_service.obtain_token_pair(sub=user_id)
 
 	# Set 'refresh_token' to cookie
@@ -70,12 +77,19 @@ async def logout(
 		token_blacklist_service: TokenBlacklistService = Depends(get_token_blacklist_service),
 		refresh_token: str = Cookie(None)
 ):
-	""" Logouts user, blacklists tokens. """
+	"""
+	   Logs out the user by blacklisting the refresh token and deleting it from cookies.
+	\n This endpoint requires an access token to be called, but the access token itself is not validated.
+	\n Instead, the refresh token (stored in the cookie) is decoded and its `jti` is blacklisted to prevent reuse.
+	\n On successful logout:
+	\n - Deletes the `refresh_token` cookie.
+	\n - Returns a success message.
+	"""
 
 	# To access endpoint 'access_token' is required but token wouldn't be validated
 	access_token = credentials.credentials if credentials else None
 	if not access_token:
-		log.warning('/logout Missing access token')
+		log.warning("/logout Missing 'access_token'")
 		raise CredentialsHTTPException()
 
 	if not refresh_token:
@@ -84,15 +98,10 @@ async def logout(
 	jwt_token_service.refresh_token = refresh_token
 
 	try:
-		# 'validate_jti=True' will check if the 'jti' is in TokenBlacklist,
-		# which is redundant because the .add() method already handles the IntegrityError
-		# when attempting to insert a duplicate 'jti' into the database.
-		payload = await jwt_token_service.decode_and_validate_token(
-			'refresh_token', validate_jti=False
-		)
+		payload = await jwt_token_service.decode_and_validate_token('refresh_token')
 		await token_blacklist_service.add(payload.get('jti'))
 	except (JWTTokenValidationException, DuplicateJTIException) as e:
-		log.info(f"/logout ValueError when validating refresh token: {e}")
+		log.info(f"/logout Error when validating 'refresh_token': {e}")
 
 	response.delete_cookie(key="refresh_token")
 	return {"message": "Logged out successfully."}
@@ -114,24 +123,29 @@ async def refresh(
 		response: Response,
 		jwt_token_service: JWTTokenService = Depends(get_jwt_token_service),
 		token_blacklist_service: TokenBlacklistService = Depends(get_token_blacklist_service),
+		refresh_token: str = Cookie(None)
 ) -> schemas.TokenRead:
-	""" Refreshes a pair of tokens. """
+	"""
+	   Refreshes the JWT token pair using a valid `refresh_token`.
+	\n On successful refresh:
+	\n - Requires a valid `refresh_token` provided via HttpOnly cookie.
+	\n - Verifies the token and ensures its `jti` is not blacklisted.
+	\n - Blacklists the old `refresh_token` to prevent reuse.
+	\n - Issues a new `access_token` in the response body.
+	\n - Sets a new `refresh_token` in the HttpOnly cookie.
+	"""
 
-	#
-	# GET COOKIE, CHECK, SET TO jwt_token_service
-	#
-
-	if not jwt_token_service.refresh_token:
+	if not refresh_token:
+		log.warning("/refresh Missing 'refresh_token'")
 		raise RefreshTokenMissingHTTPException()
 
-	try:
-		# Decode and validate payload of 'refresh_token'
-		payload = await jwt_token_service.decode_and_validate_token('refresh_token')
-		# Blacklist old 'refresh_token'
-		await token_blacklist_service.add(payload.get('jti'))
-	except ValueError:
-		raise CredentialsHTTPException()
+	jwt_token_service.refresh_token = refresh_token
 
+	try:
+		payload = await jwt_token_service.decode_and_validate_token('refresh_token')
+		await token_blacklist_service.add(payload.get('jti'))
+	except (JWTTokenValidationException, DuplicateJTIException):
+		raise CredentialsHTTPException()
 
 	# Create new tokens
 	access_token, refresh_token = jwt_token_service.obtain_token_pair(sub=payload["sub"])
@@ -159,15 +173,20 @@ async def authenticate(
 		credentials: HTTPAuthorizationCredentials = Depends(auth_scheme)
 ):
 	"""
-	Validates the provided JWT token to authenticate the user.
+	   Validates the provided `access_token` to authenticate the user.
 
-	Used internally by the API Gateway (AuthForward) to identify the user and
-	inject their `user_id` into the request headers for downstream services.
+    \n This endpoint is primarily used internally by the API Gateway (e.g., `AuthForward`)
+    \n to verify a user's identity and forward their `user_id` to downstream services
+    \n via the `X-User-Id` header.
+
+    \n On successful validation:
+    \n - Returns a 200 OK response.
+    \n - Injects the `user_id` into the response header as `X-User-Id`.
 	"""
 
 	access_token = credentials.credentials if credentials else None
 	if not access_token:
-		log.warning('/authenticate Missing access token')
+		log.warning("/authenticate Missing 'access_token'")
 		raise CredentialsHTTPException()
 
 	jwt_token_service.access_token = access_token
@@ -175,14 +194,14 @@ async def authenticate(
 	try:
 		payload = await jwt_token_service.decode_and_validate_token('access_token')
 	except JWTTokenValidationException:
-		log.warning('/authenticate Invalid access token')
+		log.warning("/authenticate Invalid 'access_token'")
 		raise CredentialsHTTPException()
 	except jwt.ExpiredSignatureError:
-		log.warning('/authenticate Expired access token')
+		log.warning("/authenticate Expired 'access_token'")
 		raise ExpiredSignatureHTTPException()
 
 	response = Response(status_code=200)
 	user_id = str(payload['sub'])
 	response.headers['X-User-Id'] = user_id
-	log.info(f'/authenticate Authenticated user_id: {user_id}')
+	log.info(f'/authenticate Authenticated user_id: <{user_id}>')
 	return response

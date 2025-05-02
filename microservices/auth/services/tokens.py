@@ -165,12 +165,12 @@ class JWTTokenService:
 				log.warning('"jti" is invalid')
 				raise JWTTokenValidationException("Token is invalid")
 
-			stmt = select(TokenBlacklist).where(TokenBlacklist.jti == jti)
-			result = await self.db.execute(stmt)
-			jti_in_db = result.scalar_one_or_none()
-			if jti_in_db:
-				log.warning('Token is blacklisted')
-				raise DuplicateJTIException("Token is invalid")
+			# stmt = select(TokenBlacklist).where(TokenBlacklist.jti == jti)
+			# result = await self.db.execute(stmt)
+			# jti_in_db = result.scalar_one_or_none()
+			# if jti_in_db:
+			# 	log.warning('Token is blacklisted')
+			# 	raise DuplicateJTIException("Token is invalid")
 
 		# 4: Validate 'sub'
 		user_id_str = payload.get("sub")

@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.crud import mixins
 from core.crud.base import M, BaseCRUD
-# from core.exceptions.custom_http_exception import EmailExistsException
 from core.loggers import log
+from exceptions.exceptions import DuplicateEmailException
 from models import User, RoleEnum
 import schemas
 from utils import password as p
@@ -42,16 +42,8 @@ class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
 
 		except IntegrityError as e:
 			await self.db.rollback()
-			if 'unique constraint' in str(e.orig).lower() and 'email' in str(e.orig):
-				# raise EmailExistsException()
-				pass
-
-			raise e
-
-	# async def create_superuser(self, user_data: UserCreateSchema) -> User:
-	# 	""" Creates a new superuser. """
-	#
-	# 	return await self.create_user(user_data, is_active=True, is_admin=True)
+			log.warning(e)
+			raise DuplicateEmailException
 
 
 class LoginService:
@@ -60,23 +52,18 @@ class LoginService:
 	def __init__(self, db: AsyncSession):
 		self.db = db
 
-	async def get_object(self, field, value) -> Optional[M]:
-		""" Get user with only 'email', 'hashed_password', 'is_active' fields """
-		valid_fields = ('username', 'email')
-
-		if field not in valid_fields:
-			raise KeyError("field must be ether 'username' or 'email'")
+	async def get_object(self, value) -> Optional[M]:
+		""" Get user with only 'id, 'email', 'hashed_password', 'is_active' fields """
 
 		stmt = (
 			select(
 				self.model.id,
-				self.model.username,
 				self.model.email,
 				self.model.hashed_password,
 				self.model.role,
 				self.model.is_active
 			)
-			.where(getattr(self.model, field) == value)
+			.where(self.model.email == value)
 		)
 		result = await self.db.execute(stmt)
 		return result.first()
@@ -99,39 +86,47 @@ class LoginService:
 		"""
 		Authenticates user
 
-		Returns {"user_id": user.id, "role": user.role}
+		Returns {"user_id": user.id}
 		"""
 
-		log.info(f'[x] -> Trying to authenticate user: {username}')
 		data = {}
-		if '@' in username:
-			field = 'email'
-		else:
-			field = 'username'
-
-		user = await self.get_object(field, username)
+		user = await self.get_object(username)
 
 		if not user:
-			log.info(f'[x] -> No such user: {username}')
+			log.info(f'[!] -> No such user: {username}')
 			return data
 
 		if not p.verify_password(password, user.hashed_password):
-			log.info(f'[x] -> Wrong password for user: {username}')
+			log.info(f'[!] -> Wrong password for user: {username}')
 			return data
 
 		permission = self.check_permission(user)
 		if not permission:
-			log.info(f'[x] -> No permission for user: {username}')
+			log.info(f'[!] -> No permission for user: {username}')
 			return data
 
 		data.setdefault('user_id', str(user.id)) # UUID to str
-		data.setdefault('role', str(user.role.value))  # UUID to str
-		log.info(f'[x] -> Authentication data: {data}')
+		# data.setdefault('role', str(user.role.value))  # UUID to str
 		return data
 
 
-# class UserMeService(mixins.RetrieveModelMixin[User],
-# 					BaseCRUD):
-# 	model = User
-# 	lookup_field = "id"
+class UserMeService(mixins.RetrieveModelMixin,
+					BaseCRUD):
+	model = User
 
+	def __init__(self, db: AsyncSession):
+		super().__init__(db)
+
+	async def get_object(self, value) -> Optional[M]:
+		stmt = (
+			select(
+				self.model.id,
+				self.model.email,
+				self.model.role,
+				self.model.is_active,
+				self.model.created_at,
+			)
+			.where(self.model.id == value)
+		)
+		result = await self.db.execute(stmt)
+		return result.first()

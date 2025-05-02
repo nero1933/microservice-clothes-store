@@ -15,6 +15,5 @@ class RPCUsersGetAuthData(RPCWorkerABC):
 		async with AsyncSessionLocal() as db:
 			login_service = LoginService(db)
 			data = await login_service.authenticate(username, password)
-			log.info(f"[x] Authentication completed")
 
 		return data

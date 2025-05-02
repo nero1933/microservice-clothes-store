@@ -38,37 +38,37 @@ services:
       timeout: 3s
       retries: 3
   
-  test-db:
-    container_name: test-db
-    image: postgres:17.4-alpine
-    ports:
-      - "5434:5432"
-    environment:
-      - POSTGRES_DB=${USERS_DB_NAME}
-      - POSTGRES_USER=${USERS_DB_USER}
-      - POSTGRES_PASSWORD=${USERS_DB_PASSWORD}
-    healthcheck:
-      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USERS_DB_USER} -d ${USERS_DB_NAME}'" ]
-      interval: 3s
-      timeout: 3s
-      retries: 3
-    networks:
-      - ecommerce-net
-
-  postfix:
-    image: boky/postfix:latest-alpine
-    container_name: postfix
-    hostname: postfix
-    environment:
-      - RELAYHOST=[smtp.sendgrid.net]:587
-      - RELAYHOST_USERNAME=${RELAYHOST_USERNAME}
-      - RELAYHOST_PASSWORD=${RELAYHOST_PASSWORD}
-      - ALLOWED_SENDER_DOMAINS=gmail.com
-      - POSTFIX_smtp_tls_security_level=encrypt
-    ports:
-      - "587:587"
-    networks:
-      - ecommerce-net
+#  test-db:
+#    container_name: test-db
+#    image: postgres:17.4-alpine
+#    ports:
+#      - "5434:5432"
+#    environment:
+#      - POSTGRES_DB=${USERS_DB_NAME}
+#      - POSTGRES_USER=${USERS_DB_USER}
+#      - POSTGRES_PASSWORD=${USERS_DB_PASSWORD}
+#    healthcheck:
+#      test: [ "CMD-SHELL", "sh -c 'pg_isready -U ${USERS_DB_USER} -d ${USERS_DB_NAME}'" ]
+#      interval: 3s
+#      timeout: 3s
+#      retries: 3
+#    networks:
+#      - ecommerce-net
+#
+#  postfix:
+#    image: boky/postfix:latest-alpine
+#    container_name: postfix
+#    hostname: postfix
+#    environment:
+#      - RELAYHOST=[smtp.sendgrid.net]:587
+#      - RELAYHOST_USERNAME=${RELAYHOST_USERNAME}
+#      - RELAYHOST_PASSWORD=${RELAYHOST_PASSWORD}
+#      - ALLOWED_SENDER_DOMAINS=gmail.com
+#      - POSTFIX_smtp_tls_security_level=encrypt
+#    ports:
+#      - "587:587"
+#    networks:
+#      - ecommerce-net
 
 #  prometheus:
 #    image: prom/prometheus:latest
