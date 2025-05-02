@@ -13,6 +13,14 @@ class Settings(BaseSettings):
 	RABBITMQ_PASSWORD: str
 	RABBITMQ_SOCKET: str
 
+	RESET_PASSWORD_KEY_FORMAT: str | None = None
+	RESET_PASSWORD_KEY_TIMEOUT: int | None = None
+
+	RESET_PASSWORD_COUNTER_FORMAT: str | None = None
+	RESET_PASSWORD_COUNTER_TIMEOUT: int | None = None
+
+	RESET_PASSWORD_MAX_ATTEMPTS: int | None = None
+
 	class Config:
 		env_file = ".env"
 
@@ -35,6 +43,10 @@ class Settings(BaseSettings):
 	def rabbitmq_url(self) -> str:
 		return (f"amqp://{self.RABBITMQ_USER}:{self.RABBITMQ_PASSWORD}@"
 				f"{self.RABBITMQ_SOCKET}/?name={self.RABBITMQ_NAME}")
+
+	@property
+	def redis_url(self) -> str:
+		return "redis://users-redis:6379/1"
 
 
 settings = Settings()

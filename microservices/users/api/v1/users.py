@@ -6,12 +6,10 @@ from core.exceptions import ExceptionDocFactory
 from core.loggers import log
 from core.exceptions.http import NotFoundHTTPException, BadRequestHTTPException, \
 	CredentialsHTTPException
-from dependencies import get_register_service
-from dependencies.users import get_user_me_service
+from dependencies import get_register_service, get_forgot_password_service, get_user_me_service
+from exceptions import DuplicateEmailException
 from exceptions.http import EmailExistsHTTPException
-from exceptions.exceptions import DuplicateEmailException
-from services import RegisterService
-from services.users import UserMeService
+from services import RegisterService, ForgotPasswordService, UserMeService
 
 auth_scheme = HTTPBearer()
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
@@ -66,7 +64,18 @@ async def me(
 
 
 @users_router.post('/forgot-password')
-async def forgot_password():
+async def forgot_password(
+		data: schemas.ForgotPassword,
+		forgot_password_service: ForgotPasswordService = Depends(get_forgot_password_service),
+):
+	# email = data.email
+	# user = get_user_by_email(email)
+	# if no user return 404 or 400?
+	# set to cache reset_id=user_id (reset_id temp uuid4)
+	# set to cache user_id={reset_id=reset_id, count: int}
+	# create email with link which ends with "/{reset_id}"
+	# send email
+
 	pass
 
 

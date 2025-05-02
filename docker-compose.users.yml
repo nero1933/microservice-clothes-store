@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   users-service:
     container_name: users-service
@@ -21,8 +23,15 @@ services:
       - RABBITMQ_USER=${RABBITMQ_USER}
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       - RABBITMQ_SOCKET=rabbitmq:5672
+      - RESET_PASSWORD_KEY_FORMAT=${RESET_PASSWORD_KEY_FORMAT}
+      - RESET_PASSWORD_KEY_TIMEOUT=${RESET_PASSWORD_KEY_TIMEOUT}
+      - RESET_PASSWORD_COUNTER_FORMAT=${RESET_PASSWORD_COUNTER_FORMAT}
+      - RESET_PASSWORD_COUNTER_TIMEOUT=${RESET_PASSWORD_COUNTER_TIMEOUT}
+      - RESET_PASSWORD_MAX_ATTEMPTS=${RESET_PASSWORD_MAX_ATTEMPTS}
     depends_on:
       users-db:
+        condition: service_healthy
+      users-redis:
         condition: service_healthy
     networks:
       - ecommerce-net
@@ -69,6 +78,18 @@ services:
       interval: 3s
       timeout: 3s
       retries: 3
+    networks:
+      - ecommerce-net
+
+  users-redis:
+    container_name: users-redis
+    image: redis:7.4.3-alpine
+    hostname: users-redis
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 10s
+      retries: 5
     networks:
       - ecommerce-net
 
