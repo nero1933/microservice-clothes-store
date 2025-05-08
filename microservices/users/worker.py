@@ -3,15 +3,15 @@ import asyncio
 from config import settings
 from core.messaging import BaseMessagingConnection
 from core.loggers import log
-from messaging.workers.rpc import RPCUsersGetAuthData
+from workers.rpc import UsersAuthenticateRPC
 
 
 async def main():
-	workers = (RPCUsersGetAuthData, )
+	RPCs = (UsersAuthenticateRPC, )
 	rabbit = BaseMessagingConnection()
 	await rabbit.setup_connection(settings.rabbitmq_url)
-	for worker in workers:
-		await worker.register()
+	for RPC in RPCs:
+		await RPC.register()
 
 	try:
 		await asyncio.Future()

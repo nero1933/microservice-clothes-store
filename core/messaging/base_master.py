@@ -28,6 +28,6 @@ class MessagingMasterClientABC(MessagingMasterFactoryABC, ABC):
 		master = await cls.get_agent()
 		queue_name: str = await cls.get_queue_name()
 		return await master.create_task(
-			queue_name=queue_name,
-			kwargs=kwargs
+			channel_name=queue_name,
+			kwargs=kwargs,
 		)

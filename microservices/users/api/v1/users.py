@@ -9,6 +9,9 @@ from core.exceptions.http import NotFoundHTTPException, BadRequestHTTPException,
 from dependencies import get_register_service, get_forgot_password_service, get_user_me_service
 from exceptions import DuplicateEmailException
 from exceptions.http import EmailExistsHTTPException
+
+from dependencies.passwords import get_temp
+from services.passwords import Temp
 from services import RegisterService, ForgotPasswordService, UserMeService
 
 auth_scheme = HTTPBearer()
@@ -67,6 +70,7 @@ async def me(
 async def forgot_password(
 		data: schemas.ForgotPassword,
 		forgot_password_service: ForgotPasswordService = Depends(get_forgot_password_service),
+		temp: Temp = Depends(get_temp),
 ):
 	# email = data.email
 	# user = get_user_by_email(email)
@@ -76,7 +80,7 @@ async def forgot_password(
 	# create email with link which ends with "/{reset_id}"
 	# send email
 
-	pass
+	await temp.create_task(d={'1': 1})
 
 
 @users_router.post('/reset-password/{reset_id}')

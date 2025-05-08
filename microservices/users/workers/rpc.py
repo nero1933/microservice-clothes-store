@@ -4,7 +4,7 @@ from core.db import AsyncSessionLocal
 from core.loggers import log
 
 
-class RPCUsersGetAuthData(MessagingRPCWorkerABC):
+class UsersAuthenticateRPC(MessagingRPCWorkerABC):
 	queue_name = 'rpc.users.authenticate'
 
 	@staticmethod
