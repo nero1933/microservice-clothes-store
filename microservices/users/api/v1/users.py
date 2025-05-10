@@ -84,5 +84,10 @@ async def forgot_password(
 
 
 @users_router.post('/reset-password/{reset_id}')
-async def reset_password():
+async def reset_password(
+		data: schemas.ResetPassword,
+):
+	# extract 'user_id' from cache using 'reset_id'
+	# get new password
+	# update user with new password
 	pass
