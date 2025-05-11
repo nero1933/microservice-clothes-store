@@ -72,13 +72,15 @@ async def forgot_password(
 		forgot_password_service: ForgotPasswordService = Depends(get_forgot_password_service),
 		temp: Temp = Depends(get_temp),
 ):
-	# email = data.email
+	email = data.email
 	# user = get_user_by_email(email)
 	# if no user return 404 or 400?
 	# set to cache reset_id=user_id (reset_id temp uuid4)
 	# set to cache user_id={reset_id=reset_id, count: int}
 	# create email with link which ends with "/{reset_id}"
 	# send email
+
+
 
 	await temp.create_task(d={'1': 1})
 

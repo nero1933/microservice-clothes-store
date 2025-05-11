@@ -1,5 +1,3 @@
-import re
-from typing import Optional
 from uuid import UUID
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, field_validator, EmailStr
@@ -35,6 +33,9 @@ class UserCreate(UserBase):
 	def password_validator(cls, value):
 		if len(value) < 8:
 			raise ValueError('Password must be at least 8 characters')
+
+		if value != value.strip():
+			raise ValueError('Password must not start or end with spaces')
 
 		return value
 
