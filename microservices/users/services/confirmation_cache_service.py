@@ -1,14 +1,17 @@
+import json
 import uuid
 
+from config import settings
 from core.cache.base_connection import BaseCacheConnection
 from core.loggers import log
 from exceptions.exceptions import TooManyRequestsException, CacheOperationException
 
 
-class ConfirmationCacheManager(BaseCacheConnection):
+class BaseConfirmationCache(BaseCacheConnection):
 	"""
 	Manages confirmation keys and counter values in the cache.
 	"""
+	confirmation_token: str | None = None
 
 	confirmation_key_template: str
 	timeout_key: int
@@ -18,15 +21,26 @@ class ConfirmationCacheManager(BaseCacheConnection):
 
 	max_attempts: int
 
-	@staticmethod
-	async def create_confirmation_token() -> str:
+	async def _set_confirmation_token(self) -> str:
 		"""
-		Returns a new confirmation token if one doesn't exist.
+		Sets a confirmation token, if token is None, or returns existing one
 		"""
-		return uuid.uuid4().hex
+		if self.confirmation_token is None:
+			self.confirmation_token = str(uuid.uuid4())
+
+		return self.confirmation_token
+
+	async def get_confirmation_token(self) -> str:
+		"""
+		Returns a confirmation token, or sets new one, if token is None.
+		"""
+		if self.confirmation_token:
+			return self.confirmation_token
+
+		return await self._set_confirmation_token()
 
 	@staticmethod
-	async def create_confirmation_key(template: str, key_template: str) -> str:
+	async def _create_confirmation_key(template: str, key_template: str) -> str:
 		"""
 		Creates a confirmation key from a template and key template.
 		"""
@@ -34,11 +48,11 @@ class ConfirmationCacheManager(BaseCacheConnection):
 			raise ValueError("Template or key_template cannot be empty")
 
 		try:
-			return template.format(key_template=key_template)
+			return template.format(key_id=key_template)
 		except KeyError as e:
 			raise ValueError(f"Key template formatting failed: {e}")
 
-	async def cache_confirmation_data(
+	async def _cache_confirmation_data(
 			self,
 			template: str,
 			key_template: str,
@@ -57,13 +71,17 @@ class ConfirmationCacheManager(BaseCacheConnection):
 
 		cache = await self.get_connection()
 		try:
-			confirmation_key = await self.create_confirmation_key(template, key_template)
-			await cache.set(confirmation_key, data, timeout=timeout)
+			confirmation_key = await self._create_confirmation_key(template, key_template)
+			await cache.set(
+				confirmation_key,
+				json.dumps(data),  # Convert to json
+				ex=timeout
+			)
 			return confirmation_key
 		except Exception as e:
 			raise CacheOperationException(f"Failed to set confirmation data in cache: {e}")
 
-	async def cache_renewed_confirmation_key(self, counter_key: str, counter_value: dict) -> None:
+	async def _cache_renewed_confirmation_key(self, counter_key: str, counter_value: dict) -> None:
 		"""
 		Renew the confirmation key in the cache by incrementing the counter value.
 		This method deletes previous counter value and sets a new key and counter value
@@ -73,10 +91,6 @@ class ConfirmationCacheManager(BaseCacheConnection):
 		cache = await self.get_connection()
 		try:
 			confirmation_key = next(iter(counter_value.keys()))  # Get the old confirmation key
-			if not await cache.exists(confirmation_key):  # If key doesn't exist in cache
-				raise CacheOperationException(  # Raise error
-					f"Confirmation key {confirmation_key} not found in cache."
-				)
 			counter = counter_value[confirmation_key] + 1  # Increment the counter
 
 			# Get 'user_dict' and delete old confirmation_key
@@ -84,13 +98,17 @@ class ConfirmationCacheManager(BaseCacheConnection):
 			await cache.delete(confirmation_key)
 
 			# Create new confirmation key
-			new_confirmation_key = await self.create_confirmation_key(
+			new_confirmation_key = await self._create_confirmation_key(
 				self.confirmation_key_template,
-				await self.create_confirmation_token()
+				await self.get_confirmation_token()
 			)
 
 			# Set new confirmation key to cache
-			await cache.set(new_confirmation_key, user_dict, timeout=self.timeout_key)
+			await cache.set(
+				new_confirmation_key,
+				json.dumps(user_dict),  # Convert to json
+				ex=self.timeout_key
+			)
 
 			# Clear the old counter value
 			counter_value.clear()
@@ -98,15 +116,19 @@ class ConfirmationCacheManager(BaseCacheConnection):
 			counter_value.update({new_confirmation_key: counter})
 
 			# Save the renewed counter data in the cache
-			await cache.set(counter_key, counter_value, timeout=self.timeout_counter)
+			await cache.set(
+				counter_key,
+				json.dumps(counter_value),
+				ex=self.timeout_counter
+			)
 
 		except Exception as e:
 			log.warning(f"Failed to cache new confirmation key: {e}")
 			raise CacheOperationException
 
-	async def cache_confirmation_key_with_counter(
+	async def _cache_confirmation_key_with_counter(
 			self,
-			user_id: int
+			user_id: str,
 	) -> None:
 		"""
 		Cache the confirmation_key and the counter_key for a user.
@@ -114,18 +136,20 @@ class ConfirmationCacheManager(BaseCacheConnection):
 		Value of confirmation_key is {'user_id': user_id}
 		Value of counter_key is {confirmation_key: 1}
 		"""
+		if not isinstance(user_id, str):
+			raise ValueError("'user_id' should be a string")
 
 		try:
-			confirmation_key = await self.cache_confirmation_data(
+			confirmation_key = await self._cache_confirmation_data(
 				self.confirmation_key_template,
-				await self.create_confirmation_token(),
+				await self.get_confirmation_token(),
 				{'user_id': user_id},
 				self.timeout_key,
 			)
 			# Store the confirmation counter with an initial value of 1
-			await self.cache_confirmation_data(
+			await self._cache_confirmation_data(
 				self.confirmation_counter_template,
-				str(user_id),
+				user_id,
 				{confirmation_key: 1},
 				self.timeout_counter,
 			)
@@ -134,7 +158,7 @@ class ConfirmationCacheManager(BaseCacheConnection):
 			log.warning(error_message)
 			raise CacheOperationException(error_message)
 
-	async def handle_cache_confirmation(self, user_id: int) -> None:
+	async def handle_cache_confirmation(self, user_id: str) -> None:
 		"""
 		Handle the caching of the confirmation key and counter for a user.
 		If the counter exceeds the max attempts, raise an exception.
@@ -142,27 +166,41 @@ class ConfirmationCacheManager(BaseCacheConnection):
 		"""
 
 		cache = await self.get_connection()
-		counter_key = await self.create_confirmation_key(
-			self.confirmation_counter_template, str(user_id)
+		counter_key = await self._create_confirmation_key(
+			self.confirmation_counter_template, user_id
 		)
 		try:
-			counter_value = await cache.get(counter_key, None)
+			counter_value = await cache.get(counter_key)
 			if counter_value is None:
 				# If no counter exists, create a new confirmation key and counter 1
-				await self.cache_confirmation_key_with_counter(user_id)
+				await self._cache_confirmation_key_with_counter(user_id)
 				return None
 
-			# counter = list(counter_value.values())[0]
+			counter_value = json.loads(counter_value) # Convert from json to dict
 			counter = next(iter(counter_value.values()))
 			if counter >= self.max_attempts:
 				# If the max attempts are reached, raise an error
-				raise TooManyRequestsException
+				raise TooManyRequestsException()
 
 			# If counter is not exceeded, renew the confirmation key and increment the counter
-			await self.cache_renewed_confirmation_key(counter_key, counter_value)
+			await self._cache_renewed_confirmation_key(counter_key, counter_value)
+		except TooManyRequestsException:
+			raise
 		except Exception as e:
 			error_message = f"Error handling cache confirmation for user {user_id}: {e}"
 			log.error(error_message)
 			raise CacheOperationException(error_message)
 
 
+class PasswordConfirmationCacheService(BaseConfirmationCache):
+	confirmation_key_template: str = settings.RESET_PASSWORD_KEY_TEMPLATE
+	timeout_key: int = settings.RESET_PASSWORD_KEY_TIMEOUT
+
+	confirmation_counter_template: str = settings.RESET_PASSWORD_COUNTER_TEMPLATE
+	timeout_counter: int = settings.RESET_PASSWORD_COUNTER_TIMEOUT
+
+	max_attempts: int = settings.RESET_PASSWORD_MAX_ATTEMPTS
+
+
+class RegisterConfirmationCacheService(BaseConfirmationCache):
+	pass

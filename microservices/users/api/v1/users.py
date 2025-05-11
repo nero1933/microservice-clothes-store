@@ -5,14 +5,16 @@ import schemas
 from core.exceptions import ExceptionDocFactory
 from core.loggers import log
 from core.exceptions.http import NotFoundHTTPException, BadRequestHTTPException, \
-	CredentialsHTTPException
-from dependencies import get_register_service, get_forgot_password_service, get_user_me_service
+	CredentialsHTTPException, TooManyRequestsHTTPException
+from dependencies import get_register_service, get_forgot_password_service, get_user_me_service, \
+	get_password_confirmation_cache_service
 from exceptions import DuplicateEmailException
+from exceptions.exceptions import TooManyRequestsException
 from exceptions.http import EmailExistsHTTPException
 
 from dependencies.passwords import get_temp
 from services.passwords import Temp
-from services import RegisterService, ForgotPasswordService, UserMeService
+from services import RegisterService, ForgotPasswordService, UserMeService, PasswordConfirmationCacheService
 
 auth_scheme = HTTPBearer()
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
@@ -25,18 +27,21 @@ users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
 	status_code=201
 )
 async def register(
-		user_data: schemas.UserCreate,
-		register_service: RegisterService = Depends(get_register_service),
+		request: Request,
+		# user_data: schemas.UserCreate,
+		# register_service: RegisterService = Depends(get_register_service),
 ):
-	try:
-		user = await register_service.create_user(
-			user_data=user_data,
-			is_active=True,
-			role='user'
-		)
-		return schemas.UserRead.model_validate(user)
-	except DuplicateEmailException:
-		raise EmailExistsHTTPException()
+	identifier = request.client.host
+	log.info(f" *** identifier: {identifier}")
+	# try:
+	# 	user = await register_service.create_user(
+	# 		user_data=user_data,
+	# 		is_active=True,
+	# 		role='user'
+	# 	)
+	# 	return schemas.UserRead.model_validate(user)
+	# except DuplicateEmailException:
+	# 	raise EmailExistsHTTPException()
 
 
 @users_router.get(
@@ -69,20 +74,22 @@ async def me(
 @users_router.post('/forgot-password')
 async def forgot_password(
 		data: schemas.ForgotPassword,
-		forgot_password_service: ForgotPasswordService = Depends(get_forgot_password_service),
+		forgot_password_service: ForgotPasswordService = \
+				Depends(get_forgot_password_service),
+		pwd_conf_cache_service: PasswordConfirmationCacheService = \
+				Depends(get_password_confirmation_cache_service),
 		temp: Temp = Depends(get_temp),
 ):
 	email = data.email
-	# user = get_user_by_email(email)
-	# if no user return 404 or 400?
-	# set to cache reset_id=user_id (reset_id temp uuid4)
-	# set to cache user_id={reset_id=reset_id, count: int}
-	# create email with link which ends with "/{reset_id}"
-	# send email
+	user = await forgot_password_service.retrieve(email)
+	try:
+		await pwd_conf_cache_service.handle_cache_confirmation(str(user.id))
+		reset_id = await pwd_conf_cache_service.get_confirmation_token()
+	except TooManyRequestsException:
+		log.info(f"User: {str(user.id)} exceeded limit of password reset")
+		raise TooManyRequestsHTTPException()
 
-
-
-	await temp.create_task(d={'1': 1})
+	await temp.create_task(d={'reset_id': reset_id})
 
 
 @users_router.post('/reset-password/{reset_id}')

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import schemas
 from core.crud import mixins
-from core.crud.base import BaseCRUD, M
+from core.crud.base import BaseCRUD
 from models import User
 
 from core.messaging import MessagingMasterClientABC
@@ -15,6 +15,7 @@ from core.messaging import MessagingMasterClientABC
 class ForgotPasswordService(mixins.RetrieveModelMixin,
 							BaseCRUD):
 	model = User
+	lookup_field = 'email'
 
 	def __init__(self, db: AsyncSession):
 		super().__init__(db)
