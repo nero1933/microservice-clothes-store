@@ -15,7 +15,7 @@ def shutdown():
 
 
 async def main():
-	# workers = (SendResetPasswordEmailWorker,)
+	# workers = (,)
 	RPCs = (UsersAuthenticateRPC, )
 	rabbit = BaseMessagingConnection()
 

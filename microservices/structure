@@ -1,0 +1,46 @@
+| mircoservice
+|
+|-- alembic
+|
+|-- api
+|---- v1
+|------ ...
+|
+|-- config
+|---- settings
+|
+|-- crud                 # CRUD operations
+|---- ...
+|
+|-- dependencies
+|---- clients
+|---- rpc
+|---- services
+|
+|-- exceptions
+|---- http
+|---- ...
+|
+|-- messaging            # RabbitMQ (aio-pika + helpers)
+|---- clients            # Master
+|---- rpc                # RPC
+|
+|-- models               # SQLAlchemy models
+|---- ...
+|
+|-- schemas              # Pydantic models
+|---- ...
+|
+|-- services             # Business logic (can be inherited from crud, clients, rpc, utils)
+|---- ...
+|
+|-- tests
+|---- configurations
+|---- ...
+|
+|-- utils                # ...
+|---- ...
+|---- ...
+|
+|-- workers              # RabbitMQ workers
+|---- ...

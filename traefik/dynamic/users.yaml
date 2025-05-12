@@ -6,8 +6,8 @@ http:
       entryPoints:
         - web
       priority: 10
-      middlewares:
-        - realip
+#      middlewares:
+#        - realip
 
     users-private:
       rule: "Host(`users.localhost`) && Path(`/api/v1/users/me`)"
@@ -16,7 +16,7 @@ http:
         - web
       priority: 100
       middlewares:
-        - realip
+#        - realip
         - auth
 
   services:

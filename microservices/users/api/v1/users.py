@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, Request
+import json
+
+from fastapi import APIRouter, Depends, Request, Response
 from fastapi.security import HTTPBearer
 
 import schemas
@@ -6,15 +8,16 @@ from core.exceptions import ExceptionDocFactory
 from core.loggers import log
 from core.exceptions.http import NotFoundHTTPException, BadRequestHTTPException, \
 	CredentialsHTTPException, TooManyRequestsHTTPException
-from dependencies import get_register_service, get_forgot_password_service, get_user_me_service, \
-	get_password_confirmation_cache_service
+from crud import UserByEmailRetriever
+from dependencies import get_register_service, get_user_me_service
+from dependencies.clients import get_reset_password_email_client
+from dependencies.crud import get_user_by_email_crud
+from dependencies.services import get_pwd_conf_cache_service
 from exceptions import DuplicateEmailException
 from exceptions.exceptions import TooManyRequestsException
 from exceptions.http import EmailExistsHTTPException
-
-from dependencies.passwords import get_temp
-from services.passwords import Temp
-from services import RegisterService, ForgotPasswordService, UserMeService, PasswordConfirmationCacheService
+from messaging.clients import ResetPasswordEmailClient
+from services import RegisterService, UserMeService, PasswordConfirmationCacheService
 
 auth_scheme = HTTPBearer()
 users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
@@ -22,26 +25,26 @@ users_router = APIRouter(prefix='/api/v1/users', tags=['users'])
 
 @users_router.post(
 	'/register',
-	response_model=schemas.UserRead,
+	# response_model=schemas.UserRead,
 	responses={400: ExceptionDocFactory.from_exception(EmailExistsHTTPException)},
 	status_code=201
 )
 async def register(
 		request: Request,
-		# user_data: schemas.UserCreate,
-		# register_service: RegisterService = Depends(get_register_service),
+		user_data: schemas.UserCreate,
+		register_service: RegisterService = Depends(get_register_service),
 ):
-	identifier = request.client.host
-	log.info(f" *** identifier: {identifier}")
-	# try:
-	# 	user = await register_service.create_user(
-	# 		user_data=user_data,
-	# 		is_active=True,
-	# 		role='user'
-	# 	)
-	# 	return schemas.UserRead.model_validate(user)
-	# except DuplicateEmailException:
-	# 	raise EmailExistsHTTPException()
+	ip = request.headers.get("X-Real-IP")
+	log.info(f" *** identifier: {ip}")
+	try:
+		user = await register_service.create_user(
+			user_data=user_data,
+			is_active=True,
+			role='user'
+		)
+		return schemas.UserRead.model_validate(user)
+	except DuplicateEmailException:
+		raise EmailExistsHTTPException()
 
 
 @users_router.get(
@@ -74,22 +77,36 @@ async def me(
 @users_router.post('/forgot-password')
 async def forgot_password(
 		data: schemas.ForgotPassword,
-		forgot_password_service: ForgotPasswordService = \
-				Depends(get_forgot_password_service),
 		pwd_conf_cache_service: PasswordConfirmationCacheService = \
-				Depends(get_password_confirmation_cache_service),
-		temp: Temp = Depends(get_temp),
+				Depends(get_pwd_conf_cache_service),
+		user_by_email_crud: UserByEmailRetriever = \
+				Depends(get_user_by_email_crud),
+		reset_password_email_client: ResetPasswordEmailClient = \
+				Depends(get_reset_password_email_client),
 ):
 	email = data.email
-	user = await forgot_password_service.retrieve(email)
-	try:
-		await pwd_conf_cache_service.handle_cache_confirmation(str(user.id))
-		reset_id = await pwd_conf_cache_service.get_confirmation_token()
-	except TooManyRequestsException:
-		log.info(f"User: {str(user.id)} exceeded limit of password reset")
-		raise TooManyRequestsHTTPException()
+	user = await user_by_email_crud.retrieve(email)
+	log.info(f'/forgot-password * {"User found" if user else "User not found"}')
+	if user:
+		try:
+			await pwd_conf_cache_service.handle_cache_confirmation(str(user.id))
+			reset_id = await pwd_conf_cache_service.get_confirmation_token()
+		except TooManyRequestsException:
+			log.info(f"User: {str(user.id)} exceeded limit of password reset")
+			raise TooManyRequestsHTTPException()
 
-	await temp.create_task(d={'reset_id': reset_id})
+		await reset_password_email_client.create_task(
+			data={
+				'email': email,
+				'reset_id': reset_id
+			},
+		)
+
+	return Response(
+		content=json.dumps({"message": "Check your email for proceeding password reset"}),
+		media_type="application/json",
+		status_code=200
+	)
 
 
 @users_router.post('/reset-password/{reset_id}')

@@ -1,14 +1,33 @@
 services:
 
+#  api-docs-service:
+#    container_name: api-docs-service
+#    build:
+#      context: .
+#      dockerfile: ./microservices/api-docs/Dockerfile-app
+#    image: api-docs-service:0.1
+#    command: [ "python", "main.py" ]
+#    ports:
+#      - "8002:8000"
+#    volumes:
+#      - ./microservices/api-docs:/api-docs
+#      - ./core:/api-docs/core
+#    networks:
+#      - ecommerce-net
+#
+#  swagger-ui:
+#    image: swaggerapi/swagger-ui
+#    container_name: swagger-ui
+#    ports:
+#      - "8081:8080"
+#    environment:
+#      - SWAGGER_JSON=/schema.json
+#    volumes:
+#      - ./microservices/api-docs/docs/schema.json:/schema.json
+
   traefik:
     image: "traefik:v3.3"
     container_name: "traefik"
-#    command:
-#      - "--log.level=DEBUG"
-#      - "--api.insecure=true"
-#      - "--providers.docker=true"
-#      - "--providers.docker.exposedbydefault=false"
-#      - "--entryPoints.web.address=:80"
     ports:
       - "80:80"
       - "8080:8080"

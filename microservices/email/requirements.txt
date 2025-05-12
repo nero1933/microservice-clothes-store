@@ -4,3 +4,4 @@ pytest-asyncio
 anyio
 httpx
 aio-pika
+aiosmtplib

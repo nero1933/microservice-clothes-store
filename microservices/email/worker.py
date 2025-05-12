@@ -4,7 +4,7 @@ import signal
 from config import settings
 from core.messaging import BaseMessagingConnection
 from core.loggers import log
-from workers.send_email import SendEmailWorker, SendResetPasswordEmailWorker
+from workers import SendResetPasswordEmailWorker
 
 shutdown_event = asyncio.Event()
 

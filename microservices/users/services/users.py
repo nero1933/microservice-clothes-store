@@ -4,8 +4,8 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.crud import mixins
-from core.crud.base import M, BaseCRUD
+from core.abc_crud import mixins
+from core.abc_crud.base import M, BaseCRUD
 from core.loggers import log
 from exceptions.exceptions import DuplicateEmailException
 from models import User, RoleEnum

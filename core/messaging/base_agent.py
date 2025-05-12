@@ -6,16 +6,6 @@ from core.loggers import log
 from core.messaging import BaseMessagingConnection
 
 
-# class Singleton(ABC):
-# 	_instances = {}
-#
-# 	def __new__(cls, *args, **kwargs):
-# 		if cls not in cls._instances:
-# 			cls._instances[cls] = super().__new__(cls)
-#
-# 		return cls._instances[cls]
-
-
 class MessagingAgentFactoryABC(BaseMessagingConnection, ABC):
 	_agent = None
 	queue_name: str | None = None

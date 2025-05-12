@@ -1,9 +1,9 @@
 http:
   middlewares:
-    realip:
-      headers:
-        customRequestHeaders:
-          X-Forwarded-For: "{clientIP}"
+#    realip:
+#      headers:
+#        customRequestHeaders:
+#          X-Forwarded-For: "{clientIP}"
 
     auth:
       forwardAuth:

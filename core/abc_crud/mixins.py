@@ -1,28 +1,32 @@
+from abc import ABC
 from typing import TypeVar, Any, Optional, Generic
 
 from pydantic import BaseModel
 
 from core.db import Base
 
-M = TypeVar('M', bound=Base) # SQLAlchemy model
+S = TypeVar('S', bound=BaseModel) # Pydantic schema
 C = TypeVar('C', bound=BaseModel) # Create schema
 U = TypeVar('U', bound=BaseModel) # Update schema
 
 
-class RetrieveModelMixin(Generic[M]):
-	async def retrieve(self, value: Any) -> Optional[M]:
-		obj = await self.get_object(value)
-		return obj
+class RetrieveModelMixin(Generic[S]):
+	async def retrieve(self, email: str) -> Optional[S] | None:
+		obj = await self.get_object(email, orm_model=False)
+		if obj:
+			obj_dict = dict(obj._mapping)
+			return self.schema(**obj_dict)
 
+		return None
 
-class ListModelMixin(Generic[M]):
-	async def list(self) -> list[M]:
+class ListModelMixin(Generic[S]):
+	async def list(self) -> list[S]:
 		objs = await self.get_objects()
 		return objs
 
 
-class CreateModelMixin(Generic[M, C]):
-	async def create(self, data: C, return_attributes: Optional[list[str]] = None) -> M:
+class CreateModelMixin(Generic[S, C]):
+	async def create(self, data: C, return_attributes: Optional[list[str]] = None) -> S:
 		obj = self.model(**data.model_dump())
 		self.db.add(obj)
 		await self.db.commit()
@@ -35,13 +39,13 @@ class CreateModelMixin(Generic[M, C]):
 		return obj
 
 
-class UpdateModelMixin(Generic[M, U]):
+class UpdateModelMixin(Generic[S, U]):
 	async def update(
 			self,
 			value: Any,
 			data: U,
 			return_attributes: Optional[list[str]] = None
-	) -> Optional[M]:
+	) -> Optional[S]:
 
 		obj = await self.get_object(value)
 		if not obj:
@@ -60,7 +64,7 @@ class UpdateModelMixin(Generic[M, U]):
 		return obj
 
 
-class DestroyModelMixin(Generic[M]):
+class DestroyModelMixin(Generic[S]):
 	async def destroy(self, value: Any) -> bool:
 		obj = await self.get_object(value)
 		if not obj:
