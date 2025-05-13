@@ -37,7 +37,7 @@ class BaseCRUD(ABC, Generic[M]):
 		- If `self.schema` is None, it selects the entire ORM model.
 		- If `self.schema` is provided, it selects only fields defined in the schema.
 		"""
-		if self.schema:
+		if not self.schema:
 			fields = (self.model, )  # If 'self.schema' is not defined -- get orm model
 		else:  # If 'self.schema' is defined -- get schemas fields
 			schema_fields = await self.get_fields_from_schema()
