@@ -12,7 +12,7 @@ M = TypeVar('M', bound=Base) # SQLAlchemy model
 S = TypeVar('S', bound=BaseModel) # Pydantic schema
 
 
-class BaseCRUD(ABC, Generic[M]):
+class BaseCRUD(ABC, Generic[M, S]):
 	model: Type[M]
 	schema: Type[S]
 	lookup_field: str = 'id'

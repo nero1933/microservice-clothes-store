@@ -11,7 +11,7 @@ C = TypeVar('C', bound=BaseModel) # Create schema
 U = TypeVar('U', bound=BaseModel) # Update schema
 
 
-class RetrieveModelMixin(Generic[S]):
+class RetrieveModelMixin(Generic[M, S]):
 	"""
 	Retrieve either a Pydantic schema instance or an ORM model,
 	depending on whether 'self.schema' is set.
@@ -41,7 +41,7 @@ class RetrieveModelMixin(Generic[S]):
 
 
 class ListModelMixin(Generic[S]):
-	async def list(self) -> list[S]:
+	async def list(self) -> list[S]: # CHANGE NAME
 		objs = await self.get_objects()
 		return objs
 

@@ -41,6 +41,7 @@ class UserCreate(UserBase):
 
 
 class UserRead(BaseModel):
+	id: UUID
 	email: EmailStr
 	role: RoleEnum
 	is_active: bool

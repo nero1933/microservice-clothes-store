@@ -7,6 +7,10 @@ class Settings(BaseSettings):
 	RABBITMQ_PASSWORD: str
 	RABBITMQ_SOCKET: str
 
+	DEFAULT_FROM_EMAIL: str = 'nero.pet.1933@gmail.com'
+	SMTP_HOST: str = 'postfix'
+	SMTP_PORT: int = 587
+
 	class Config:
 		env_file = ".env"
 

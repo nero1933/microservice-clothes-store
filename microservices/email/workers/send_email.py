@@ -1,13 +1,18 @@
 from abc import ABC, abstractmethod
+from email.message import EmailMessage
 
 from aio_pika import ExchangeType
+import aiosmtplib
 
+from config import settings
 from core.loggers import log
 from core.messaging import MessagingMasterWorkerABC
 
 
 class SendEmailWorker(MessagingMasterWorkerABC, ABC):
-	# queue_name = 'email.send'
+	from_email: str = settings.DEFAULT_FROM_EMAIL
+	smtp_host: str = settings.SMTP_HOST
+	smtp_port: int = settings.SMTP_PORT
 
 	# @classmethod
 	# async def create_worker(cls, **kwargs) -> None:
@@ -28,20 +33,25 @@ class SendEmailWorker(MessagingMasterWorkerABC, ABC):
 	# 		**kwargs
 	# 	)
 
-	@staticmethod
+	@classmethod
 	@abstractmethod
-	async def send_mail(data: dict):
+	async def get_email_message(cls, data: dict) -> EmailMessage:
 		raise NotImplementedError
 
 	@classmethod
 	async def callback(cls, data: dict, *args, **kwargs) -> dict | None:
 		log.info(f'Received message (callback): {data}')
-		await cls.send_mail(data)
-		return data
+		msg = await cls.get_email_message(data)
+		await aiosmtplib.send(
+			msg,
+			hostname="postfix",
+			port=587,
+		)
+		return {'status': 'ok'}
 
 
 class SendConfirmationEmailWorker(SendEmailWorker, ABC):
 
 	@staticmethod
 	async def build_conf_link(data: dict):
-		log.info(f'Received message (send_mail): {data}')
+		return data['reset_id']

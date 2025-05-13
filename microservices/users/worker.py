@@ -3,7 +3,7 @@ import signal
 
 from config import settings
 from core.messaging import BaseMessagingConnection
-from core.loggers import log
+from core.loggers import log, sql_logger
 from workers.rpc import UsersAuthenticateRPC
 
 shutdown_event = asyncio.Event()

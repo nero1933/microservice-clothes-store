@@ -5,7 +5,7 @@ from core.loggers import log
 
 
 class UsersAuthenticateRPC(MessagingRPCWorkerABC):
-	queue_name = 'rpc.users.authenticate'
+	queue_name: str = 'rpc.users.authenticate'
 
 	@staticmethod
 	async def callback(username, password) -> dict:

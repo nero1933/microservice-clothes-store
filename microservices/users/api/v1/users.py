@@ -44,6 +44,7 @@ async def register(
 		)
 		return schemas.UserRead.model_validate(user)
 	except DuplicateEmailException:
+		log.warning(f"/register * <{user_data.email}> already exists")
 		raise EmailExistsHTTPException()
 
 

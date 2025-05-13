@@ -1,6 +1,5 @@
-from typing import Optional, Dict
+from typing import Dict
 
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,12 +12,11 @@ from utils import password as p
 
 
 class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
-					  BaseCRUD):
+					  BaseCRUD[User, schemas.UserInDB]):
 	model = User
 
 	def __init__(self, db: AsyncSession):
 		super().__init__(db)
-
 
 	async def create_user(
 			self,
@@ -41,34 +39,21 @@ class RegisterService(mixins.CreateModelMixin[User, schemas.UserInDB],
 
 		except IntegrityError as e:
 			await self.db.rollback()
-			log.warning(e)
+			# log.warning(e)
 			raise DuplicateEmailException
 
 
-class LoginService:
+class LoginService(mixins.RetrieveModelMixin[User, schemas.UserFull],
+				   BaseCRUD[User, schemas.UserFull]):
 	model = User
+	schema = schemas.UserFull
+	lookup_field = 'email'
 
 	def __init__(self, db: AsyncSession):
-		self.db = db
-
-	async def get_object(self, value) -> Optional[M]:
-		""" Get user with only 'id, 'email', 'hashed_password', 'is_active' fields """
-
-		stmt = (
-			select(
-				self.model.id,
-				self.model.email,
-				self.model.hashed_password,
-				self.model.role,
-				self.model.is_active
-			)
-			.where(self.model.email == value)
-		)
-		result = await self.db.execute(stmt)
-		return result.first()
+		super().__init__(db)
 
 	@staticmethod
-	def check_permission(user: User) -> bool:
+	def check_permission(user: schemas.UserFull) -> bool:
 		if not user.is_active:
 			return False
 
@@ -89,7 +74,7 @@ class LoginService:
 		"""
 
 		data = {}
-		user = await self.get_object(username)
+		user = await self.retrieve(username)
 
 		if not user:
 			log.info(f'[!] RPC | No such user: <{username}>')
@@ -109,23 +94,10 @@ class LoginService:
 		return data
 
 
-class UserMeService(mixins.RetrieveModelMixin,
-					BaseCRUD):
+class UserMeService(mixins.RetrieveModelMixin[User, schemas.UserRead],
+					BaseCRUD[User, schemas.UserRead]):
 	model = User
+	schema = schemas.UserRead
 
 	def __init__(self, db: AsyncSession):
 		super().__init__(db)
-
-	async def get_object(self, value) -> Optional[M]:
-		stmt = (
-			select(
-				self.model.id,
-				self.model.email,
-				self.model.role,
-				self.model.is_active,
-				self.model.created_at,
-			)
-			.where(self.model.id == value)
-		)
-		result = await self.db.execute(stmt)
-		return result.first()
