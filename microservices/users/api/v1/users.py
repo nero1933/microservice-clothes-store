@@ -89,6 +89,11 @@ async def forgot_password(
 	log.info(f'/forgot-password * {"User found" if user else "User not found"}')
 	if user:
 		try:
+			# TEMP
+			cache = await pwd_conf_cache_service.get_connection()
+			await cache.flushdb()
+			# TEMP
+
 			await pwd_conf_cache_service.handle_cache_confirmation(str(user.id))
 			reset_id = await pwd_conf_cache_service.get_confirmation_token()
 		except TooManyRequestsException:
