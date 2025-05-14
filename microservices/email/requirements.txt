@@ -5,3 +5,5 @@ anyio
 httpx
 aio-pika
 aiosmtplib
+sendgrid
+jinja2

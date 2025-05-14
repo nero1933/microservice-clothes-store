@@ -74,21 +74,6 @@ services:
 #    networks:
 #      - ecommerce-net
 #
-  postfix:
-    image: boky/postfix:latest-alpine
-    container_name: postfix
-    hostname: postfix
-    environment:
-      - RELAYHOST=[smtp.sendgrid.net]:587
-      - RELAYHOST_USERNAME=${RELAYHOST_USERNAME}
-      - RELAYHOST_PASSWORD=${RELAYHOST_PASSWORD}
-      - ALLOWED_SENDER_DOMAINS=gmail.com
-      - POSTFIX_smtp_tls_security_level=encrypt
-    ports:
-      - "587:587"
-    networks:
-      - ecommerce-net
-
 #  prometheus:
 #    image: prom/prometheus:latest
 #    container_name: prometheus

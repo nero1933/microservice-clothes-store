@@ -10,14 +10,17 @@ class BaseConnection(ABC):
 	_name: str | None = None
 
 	@classmethod
-	async def setup_connection(cls, url: str | None = None, max_attempts: int = 10) -> None:
+	async def validate_url(cls, url: str):
 		if url is None:
 			error = "url cannot be None"
 			log.error(error)
 			raise ValueError(error)
 
-		cls._url = url
+		return url
 
+	@classmethod
+	async def setup_connection(cls, url: str | None = None, max_attempts: int = 10) -> None:
+		cls._url = await cls.validate_url(url)
 		for attempt in range(1, max_attempts + 1):
 			try:
 				await cls._connect(url)

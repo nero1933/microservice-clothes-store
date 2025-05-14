@@ -1,57 +1,70 @@
-from abc import ABC, abstractmethod
 from email.message import EmailMessage
 
-from aio_pika import ExchangeType
-import aiosmtplib
+from abc import ABC, abstractmethod
+
+from jinja2 import TemplateNotFound
+from sendgrid.helpers.mail import Mail, Content
 
 from config import settings
 from core.loggers import log
 from core.messaging import MessagingMasterWorkerABC
+from smtp_connection import SmtpConnection
 
 
 class SendEmailWorker(MessagingMasterWorkerABC, ABC):
 	from_email: str = settings.DEFAULT_FROM_EMAIL
-	smtp_host: str = settings.SMTP_HOST
-	smtp_port: int = settings.SMTP_PORT
-
-	# @classmethod
-	# async def create_worker(cls, **kwargs) -> None:
-	# 	queue_name = await cls.get_queue_name()
-	# 	master = await cls.get_agent()
-	#
-	# 	exchange = await master.channel.declare_exchange(
-	# 		"email_exchange", ExchangeType.TOPIC
-	# 	)
-	#
-	# 	queue = await master.channel.declare_queue(queue_name)
-	#
-	# 	await queue.bind(exchange, routing_key="worker.email.send.reset")
-	#
-	# 	await master.create_worker(
-	# 		queue_name=queue_name,
-	# 		func=cls.callback,
-	# 		**kwargs
-	# 	)
+	subject: str
 
 	@classmethod
 	@abstractmethod
-	async def get_email_message(cls, data: dict) -> EmailMessage:
+	async def get_html_content(cls, data: dict) -> str:
 		raise NotImplementedError
 
 	@classmethod
-	async def callback(cls, data: dict, *args, **kwargs) -> dict | None:
+	@abstractmethod
+	async def get_plain_text_content(cls, data: dict) -> str:
+		raise NotImplementedError
+
+	@classmethod
+	async def get_mail(cls, to_email, data) -> EmailMessage:
+		if to_email is None:
+			raise ValueError('to_email cannot be None')
+
+		plain_text_content = await cls.get_plain_text_content(data)
+		html_content = await cls.get_html_content(data)
+
+		mail = EmailMessage()
+		mail["From"] = cls.from_email
+		mail["To"] = to_email
+		mail["Subject"] = getattr(cls, "subject", "Default Subject")
+
+		# Attach plain text and HTML parts
+		mail.set_content(plain_text_content, "plain")
+		mail.add_alternative(html_content, subtype="html")
+
+		return mail
+
+	@classmethod
+	async def callback(cls, data: dict, *args, **kwargs) -> None:
 		log.info(f'Received message (callback): {data}')
-		msg = await cls.get_email_message(data)
-		await aiosmtplib.send(
-			msg,
-			hostname="postfix",
-			port=587,
-		)
-		return {'status': 'ok'}
+		to_email = data.pop('email', None)
+		try:
+			mail = await cls.get_mail(to_email, data)
+		except (ValueError, KeyError, TemplateNotFound) as e:
+			log.error(f"Error while building email: {e}")
+			return None
+
+		try:
+			smtp = await SmtpConnection.get_connection()
+			await smtp.send_message(mail)
+		except Exception as e:
+			log.error(f"Error sending email: {e}")
+
+		return None
 
 
 class SendConfirmationEmailWorker(SendEmailWorker, ABC):
 
 	@staticmethod
-	async def build_conf_link(data: dict):
-		return data['reset_id']
+	async def build_confirmation_link(data: dict):
+		raise NotImplementedError

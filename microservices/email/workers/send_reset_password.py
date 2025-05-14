@@ -1,39 +1,39 @@
 from email.message import EmailMessage
 
+from jinja2 import TemplateNotFound
+from sendgrid import Content
+
+from config import settings
 from core.loggers import log
+from templates import render_template
 from .send_email import SendConfirmationEmailWorker
 
 
 class SendResetPasswordEmailWorker(SendConfirmationEmailWorker):
 	queue_name = 'email.send.reset_password'
 	subject: str = 'Password reset'
-	body: str
 
 	@classmethod
-	async def get_email_message(cls, data: dict):
-		pass
+	async def get_html_content(cls, data: dict) -> str:
+		try:
+			reset_link = await cls.build_confirmation_link(data)
+			return render_template(
+				"reset_password.html",
+				{'reset_link': reset_link}
+			)
+		except TemplateNotFound as e:
+			log.error(f"Template not found: {e}")
+			raise
 
 	@classmethod
-	async def get_email_message(cls, data: dict) -> EmailMessage:
-		log.info(f'Received message (send_mail): {data}')
+	async def get_plain_text_content(cls, data: dict) -> str:
+		reset_link = await cls.build_confirmation_link(data)
+		return f"Use the following link to reset your password: {reset_link}"
 
-		msg = EmailMessage()
-		msg["From"] = cls.from_email
-		msg["To"] = data.get("email")
-		msg["Subject"] = 'Password reset'
-		msg.set_content(f"Visit http://users.localhost/api/v1/reset-password/{data.get("reset_id")} to reset your password.")
+	@staticmethod
+	async def build_confirmation_link(data: dict) -> str:
+		if 'reset_id' not in data:
+			raise KeyError("Missing 'reset_id' in data")
 
-		reset_id = data.get('reset_id')
-		html = f"""
-		<html>
-		  <body>
-		    <p>Click the link below to reset your password:</p>
-		    <p><a href="http://users.localhost/api/v1/reset-password/{reset_id}">LINK</a></p>
-		    <p>{reset_id}</p>
-		  </body>
-		</html>
-		"""
-
-		msg.add_alternative(html, subtype="html")
-		return msg
-
+		url = settings.RESET_PASSWORD_URL
+		return url.format(reset_id=data['reset_id'])

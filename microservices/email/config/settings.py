@@ -7,7 +7,12 @@ class Settings(BaseSettings):
 	RABBITMQ_PASSWORD: str
 	RABBITMQ_SOCKET: str
 
-	DEFAULT_FROM_EMAIL: str = 'nero.pet.1933@gmail.com'
+	DEFAULT_FROM_EMAIL: str
+	SENDGRID_API_KEY: str
+	SENDGRID_API_URL: str
+
+	RESET_PASSWORD_URL: str
+
 	SMTP_HOST: str = 'postfix'
 	SMTP_PORT: int = 587
 
