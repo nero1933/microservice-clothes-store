@@ -1,8 +1,7 @@
 from config import settings
-from utils import BaseConfirmationCache
 
 
-class PasswordConfirmationCacheService(BaseConfirmationCache):
+class PasswordCacheSettings:
 	confirmation_key_template: str = settings.RESET_PASSWORD_KEY_TEMPLATE
 	timeout_key: int = settings.RESET_PASSWORD_KEY_TIMEOUT
 

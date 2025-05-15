@@ -10,24 +10,10 @@ class UserBase(BaseModel):
 	model_config = ConfigDict(from_attributes=True)
 
 
-class UserCreate(UserBase):
+class UserPassword(BaseModel):
 	""" Validates input from api to create user """
 
 	password: str
-
-	# @field_validator('username')
-	# def username_validator(cls, value):
-	# 	if len(value) < 4:
-	# 		raise ValueError('Username must be at least 4 characters')
-	#
-	# 	if not re.match(r'^[a-zA-Z0-9-_]+$', value):
-	# 		raise ValueError('Username can only contain letters, '
-	# 						 'numbers, hyphens, and underscores.')
-	#
-	# 	if not value[0].isalpha():
-	# 		raise ValueError('Username must start with a letter.')
-	#
-	# 	return value
 
 	@field_validator('password')
 	def password_validator(cls, value):
@@ -38,6 +24,11 @@ class UserCreate(UserBase):
 			raise ValueError('Password must not start or end with spaces')
 
 		return value
+
+
+class UserCreate(UserBase, UserPassword):
+	""" Validates input from api to create user """
+	pass
 
 
 class UserRead(BaseModel):
@@ -60,3 +51,7 @@ class UserInDB(UserBase):
 class UserFull(UserInDB):
 	id: UUID
 	created_at: datetime
+
+
+class UserResetPassword(BaseModel):
+	hashed_password: str

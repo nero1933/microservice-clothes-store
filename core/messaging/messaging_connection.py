@@ -5,7 +5,7 @@ from ..base_connection import BaseConnection
 from ..loggers import log
 
 
-class BaseMessagingConnection(BaseConnection):
+class MessagingConnection(BaseConnection):
 	_connection: AbstractRobustConnection | None = None
 	_url: str | None = None
 	_channel: AbstractChannel | None = None

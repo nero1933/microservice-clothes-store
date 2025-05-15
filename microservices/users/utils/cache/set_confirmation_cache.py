@@ -1,13 +1,12 @@
 import json
 import uuid
 
-from config import settings
-from core.cache.base_connection import BaseCacheConnection
+from core.cache.cache_connection import CacheConnection
 from core.loggers import log
-from exceptions.exceptions import TooManyRequestsException, CacheOperationException
+from exceptions.exceptions import TooManyRequestsException, OperationCacheException
 
 
-class BaseConfirmationCache(BaseCacheConnection):
+class BaseSetConfirmationCache(CacheConnection):
 	"""
 	Manages confirmation keys and counter values in the cache.
 	"""
@@ -79,7 +78,7 @@ class BaseConfirmationCache(BaseCacheConnection):
 			)
 			return confirmation_key
 		except Exception as e:
-			raise CacheOperationException(f"Failed to set confirmation data in cache: {e}")
+			raise OperationCacheException(f"Failed to set confirmation data in cache: {e}")
 
 	async def _cache_renewed_confirmation_key(self, counter_key: str, counter_value: dict) -> None:
 		"""
@@ -124,7 +123,7 @@ class BaseConfirmationCache(BaseCacheConnection):
 
 		except Exception as e:
 			log.warning(f"Failed to cache new confirmation key: {e}")
-			raise CacheOperationException
+			raise OperationCacheException
 
 	async def _cache_confirmation_key_with_counter(
 			self,
@@ -156,7 +155,7 @@ class BaseConfirmationCache(BaseCacheConnection):
 		except Exception as e:
 			error_message = f"Failed to cache new confirmation key: {e}"
 			log.warning(error_message)
-			raise CacheOperationException(error_message)
+			raise OperationCacheException(error_message)
 
 	async def handle_cache_confirmation(self, user_id: str) -> None:
 		"""
@@ -191,4 +190,4 @@ class BaseConfirmationCache(BaseCacheConnection):
 		except Exception as e:
 			error_message = f"Error handling cache confirmation for user {user_id}: {e}"
 			log.error(error_message)
-			raise CacheOperationException(error_message)
+			raise OperationCacheException(error_message)

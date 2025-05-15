@@ -63,19 +63,23 @@ class CreateModelMixin(Generic[S, C]):
 class UpdateModelMixin(Generic[S, U]):
 	async def update(
 			self,
-			value: Any,
-			data: U,
-			return_attributes: Optional[list[str]] = None
+			value: Any,     # lookup_field
+			schema: U,      # data to update
+			return_attributes: Optional[list[str]] = None,
+			refresh: bool = True
 	) -> Optional[S]:
 
 		obj = await self.get_object(value)
 		if not obj:
 			return None
 
-		for field, value in data.model_dump(exclude_unset=True).items():
+		for field, value in schema.model_dump(exclude_unset=True).items():
 			setattr(obj, field, value)
 
 		await self.db.commit()
+
+		if not refresh:
+			return
 
 		if return_attributes:
 			await self.db.refresh(obj, attribute_names=return_attributes)

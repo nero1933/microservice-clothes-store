@@ -3,7 +3,6 @@ from email.message import EmailMessage
 from abc import ABC, abstractmethod
 
 from jinja2 import TemplateNotFound
-from sendgrid.helpers.mail import Mail, Content
 
 from config import settings
 from core.loggers import log
@@ -60,7 +59,13 @@ class SendEmailWorker(MessagingMasterWorkerABC, ABC):
 		except Exception as e:
 			log.error(f"Error sending email: {e}")
 
+		await cls.log_success(data, to_email)
 		return None
+
+	@classmethod
+	async def log_success(cls, data: dict, to_email: str | None) -> None:
+		log.info(f"Sent email with subject <{cls.subject}> to <{to_email}>")
+
 
 
 class SendConfirmationEmailWorker(SendEmailWorker, ABC):
@@ -68,3 +73,4 @@ class SendConfirmationEmailWorker(SendEmailWorker, ABC):
 	@staticmethod
 	async def build_confirmation_link(data: dict):
 		raise NotImplementedError
+

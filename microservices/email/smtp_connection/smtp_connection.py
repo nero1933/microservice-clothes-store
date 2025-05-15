@@ -26,13 +26,14 @@ class SmtpConnection(BaseConnection):
 
 	@classmethod
 	async def _check_connection(cls) -> bool:
-		if cls._connection is None:
+		if cls._connection is None or not cls._connection.is_connected:
 			return False
 
 		return True
 
 	@classmethod
 	async def disconnect(cls) -> None:
-		connection = await cls.get_connection()
-		await connection.quit()
+		if await cls._check_connection():
+			await cls._connection.quit()
+
 		log.info(f"Disconnected from {cls._name}")

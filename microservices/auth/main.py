@@ -5,12 +5,12 @@ from fastapi import FastAPI
 
 from api.v1 import auth_router
 from config import settings
-from core.messaging import BaseMessagingConnection
+from core.messaging import MessagingConnection
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-	rabbitmq = BaseMessagingConnection()
+	rabbitmq = MessagingConnection()
 	await rabbitmq.setup_connection(settings.rabbitmq_url)
 	yield
 	await rabbitmq.disconnect()

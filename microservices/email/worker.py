@@ -6,7 +6,7 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 import os
 
 from config import settings
-from core.messaging import BaseMessagingConnection
+from core.messaging import MessagingConnection
 from core.loggers import log
 from smtp_connection.smtp_connection import SmtpConnection
 from workers import SendResetPasswordEmailWorker
@@ -21,7 +21,7 @@ def shutdown():
 
 async def main():
 	workers = (SendResetPasswordEmailWorker,)
-	rabbit = BaseMessagingConnection()
+	rabbit = MessagingConnection()
 	smtp = SmtpConnection()
 
 	await rabbit.setup_connection(settings.rabbitmq_url)

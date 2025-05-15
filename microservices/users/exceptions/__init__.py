@@ -1,1 +1,1 @@
-from .exceptions import DuplicateEmailException
+from .exceptions import *

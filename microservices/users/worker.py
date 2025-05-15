@@ -2,7 +2,7 @@ import asyncio
 import signal
 
 from config import settings
-from core.messaging import BaseMessagingConnection
+from core.messaging import MessagingConnection
 from core.loggers import log, sql_logger
 from workers.rpc import UsersAuthenticateRPC
 
@@ -17,7 +17,7 @@ def shutdown():
 async def main():
 	# workers = (,)
 	RPCs = (UsersAuthenticateRPC, )
-	rabbit = BaseMessagingConnection()
+	rabbit = MessagingConnection()
 
 	await rabbit.setup_connection(settings.rabbitmq_url)
 	for RPC in RPCs:

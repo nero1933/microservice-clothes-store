@@ -1,7 +1,4 @@
-from email.message import EmailMessage
-
 from jinja2 import TemplateNotFound
-from sendgrid import Content
 
 from config import settings
 from core.loggers import log

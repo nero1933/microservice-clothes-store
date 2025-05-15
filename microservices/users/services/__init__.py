@@ -1,2 +1,2 @@
 from .users import RegisterService, LoginService, UserMeService
-from .forgot_password import PasswordConfirmationCacheService
+from .passwords import PasswordGetConfirmationCacheService, PasswordSetConfirmationCacheService

@@ -3,7 +3,7 @@ from typing import Dict
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.base_crud import mixins, M, BaseCRUD
+from core.base_crud import mixins, BaseCRUD
 from core.loggers import log
 from exceptions.exceptions import DuplicateEmailException
 from models import User, RoleEnum

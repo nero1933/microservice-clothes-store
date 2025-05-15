@@ -4,17 +4,17 @@ import uvicorn
 from fastapi import FastAPI
 
 from config import settings
-from core.cache.base_connection import BaseCacheConnection
+from core.cache.cache_connection import CacheConnection
 from core.loggers import sql_logger
 
 from api.v1 import users_router
-from core.messaging import BaseMessagingConnection
+from core.messaging import MessagingConnection
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-	reddis = BaseCacheConnection()
-	rabbitmq = BaseMessagingConnection()
+	reddis = CacheConnection()
+	rabbitmq = MessagingConnection()
 	await reddis.setup_connection(settings.redis_url)
 	await rabbitmq.setup_connection(settings.rabbitmq_url)
 	yield

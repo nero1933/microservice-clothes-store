@@ -16,6 +16,7 @@ class BaseCRUD(ABC, Generic[M, S]):
 	model: Type[M]
 	schema: Type[S]
 	lookup_field: str = 'id'
+	_obj: M | Row | None = None
 
 	def __init__(self, db: AsyncSession) -> None:
 		self.db = db
@@ -45,14 +46,16 @@ class BaseCRUD(ABC, Generic[M, S]):
 
 		return select(*fields).where(getattr(self.model, self.lookup_field) == value)
 
-	async def get_object(self, value) -> M | Row | None:
+	async def _get_orm_object(self, value) -> M | None:
 		stmt = await self.get_statement(value)
 		result = await self.db.execute(stmt)
-		if self.schema is None:  # If 'self.schema' is not defined -- get orm model
-			return result.scalar_one_or_none()
+		return result.scalar_one_or_none()
 
-		# If 'self.schema' is defined -- get schemas fields
+	async def _get_schema_object(self, value) -> Row | None:
+		stmt = await self.get_statement(value)
+		result = await self.db.execute(stmt)
 		rows = result.all()
+
 		if not rows:
 			return None
 
@@ -62,6 +65,17 @@ class BaseCRUD(ABC, Generic[M, S]):
 			raise ValueError(error_message)
 
 		return rows[0]
+
+	async def get_object(self, value) -> M | Row | None:
+		if getattr(self, '_obj') is not None:
+			return self._obj
+
+		if self.schema is None:
+			self._obj = await self._get_orm_object(value)
+		else:
+			self._obj = await self._get_schema_object(value)
+
+		return self._obj
 
 	async def get_objects(self) -> list[M]:
 		stmt = select(self.model)

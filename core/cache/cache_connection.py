@@ -4,7 +4,7 @@ from redis.asyncio import Redis
 from ..loggers import log
 
 
-class BaseCacheConnection(BaseConnection):
+class CacheConnection(BaseConnection):
 	_connection: Redis = None
 	_url: str | None = None
 	_name: str = "Reddis"

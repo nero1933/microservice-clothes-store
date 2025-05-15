@@ -2,6 +2,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, field_validator, model_validator
 
+from .users import UserPassword
+
 
 class ForgotPassword(BaseModel):
 	email: EmailStr
@@ -11,20 +13,8 @@ class UserForgotPassword(ForgotPassword):
 	id: UUID
 
 
-class ResetPassword(BaseModel):
-	password: str
+class ResetPassword(UserPassword):
 	confirm_password: str
-
-	@field_validator('password')
-	def password_validator(cls, value):
-		if len(value) < 8:
-			raise ValueError('Password must be at least 8 characters')
-
-		if value != value.strip():
-			raise ValueError('Password must not start or end with spaces')
-
-		return value
-
 
 	@model_validator(mode='after')
 	def passwords_match(cls, model):

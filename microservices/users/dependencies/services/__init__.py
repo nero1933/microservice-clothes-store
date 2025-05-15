@@ -1,1 +1,2 @@
-from .users import get_pwd_conf_cache_service
+from .passwords import get_pwd_get_conf_cache_service, get_pwd_set_conf_cache_service
+from .users import get_register_service, get_user_me_service, get_login_service

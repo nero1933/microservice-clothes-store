@@ -3,10 +3,10 @@ from abc import ABC, abstractmethod
 from aio_pika.patterns import RPC, Master
 
 from core.loggers import log
-from core.messaging import BaseMessagingConnection
+from core.messaging import MessagingConnection
 
 
-class MessagingAgentFactoryABC(BaseMessagingConnection, ABC):
+class MessagingAgentFactoryABC(MessagingConnection, ABC):
 	_agent = None
 	queue_name: str | None = None
 
