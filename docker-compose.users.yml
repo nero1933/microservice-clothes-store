@@ -82,6 +82,8 @@ services:
   users-redis:
     container_name: users-redis
     image: redis:7.4.3-alpine
+    ports:
+      - "6379:6379"
     hostname: users-redis
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]

@@ -1,2 +1,2 @@
-from .users import UserBase, UserRead, UserCreate, UserInDB, UserFull, UserResetPassword
+from .users import UserBase, UserRead, UserCreate, UserInDB, UserFull
 from .passwords import ForgotPassword, ResetPassword, UserForgotPassword

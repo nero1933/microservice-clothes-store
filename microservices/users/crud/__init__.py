@@ -1,1 +1,1 @@
-from .get_user_by_email import UserByEmailRetriever, UserResetPasswordCRUD
+from .users import UserByEmailRetriever, UserResetPasswordCRUD

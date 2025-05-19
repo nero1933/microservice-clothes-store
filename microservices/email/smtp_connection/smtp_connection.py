@@ -14,7 +14,8 @@ class SmtpConnection(BaseConnection):
 
 	@classmethod
 	async def _connect(cls, url: str | None = None):
-		if cls._connection is None or cls._connection.is_closed:
+		connection_established = await cls._check_connection()
+		if not connection_established:
 			smtp = SMTP(
 				hostname=settings.SMTP_HOST,
 				port=settings.SMTP_PORT,

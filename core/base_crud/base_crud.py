@@ -2,7 +2,7 @@ from abc import ABC
 from typing import TypeVar, Generic, Optional, Type
 
 from pydantic import BaseModel
-from sqlalchemy import select, Row, Select
+from sqlalchemy import select, Row, Select, update, Update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.db import Base
@@ -14,7 +14,7 @@ S = TypeVar('S', bound=BaseModel) # Pydantic schema
 
 class BaseCRUD(ABC, Generic[M, S]):
 	model: Type[M]
-	schema: Type[S]
+	schema: Type[S] | None = None
 	lookup_field: str = 'id'
 	_obj: M | Row | None = None
 
@@ -46,6 +46,12 @@ class BaseCRUD(ABC, Generic[M, S]):
 
 		return select(*fields).where(getattr(self.model, self.lookup_field) == value)
 
+	async def get_statement_for_update(self, value) -> Update:
+		return update(self.model). \
+			where(getattr(self.model, self.lookup_field) == value) \
+			.values(hashed_password='1')
+
+
 	async def _get_orm_object(self, value) -> M | None:
 		stmt = await self.get_statement(value)
 		result = await self.db.execute(stmt)
@@ -67,10 +73,10 @@ class BaseCRUD(ABC, Generic[M, S]):
 		return rows[0]
 
 	async def get_object(self, value) -> M | Row | None:
-		if getattr(self, '_obj') is not None:
+		if getattr(self, '_obj', None) is not None:
 			return self._obj
 
-		if self.schema is None:
+		if getattr(self, 'schema', None) is None:
 			self._obj = await self._get_orm_object(value)
 		else:
 			self._obj = await self._get_schema_object(value)

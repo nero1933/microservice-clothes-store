@@ -13,9 +13,8 @@ from dependencies import get_register_service, get_user_me_service, get_reset_pa
 	get_user_by_email_crud, get_user_reset_password_crud, get_pwd_set_conf_cache_service, \
 	get_pwd_get_conf_cache_service
 from exceptions import DuplicateEmailException, TooManyRequestsException, \
-	ConfirmationKeyExpiredCacheException, ConfirmationCounterKeyExpiredCacheException, \
-	InvalidConfirmationKeyCacheException, OperationCacheException, UserNotFoundException, \
-	PasswordUnchangedException, ValidationConfirmationCacheException
+	OperationCacheException, UserNotFoundException, PasswordUnchangedException, \
+	ValidationConfirmationCacheException, CacheException, ExceedLimitConfirmationCacheException
 from exceptions.http import EmailExistsHTTPException, ResetPasswordHTTPException
 from messaging.clients import ResetPasswordEmailClient
 from services import RegisterService, UserMeService, PasswordSetConfirmationCacheService, \
@@ -92,14 +91,9 @@ async def forgot_password(
 	log.info(f'/forgot-password * {"User found" if user else "User not found"}')
 	if user:
 		try:
-			# TEMP
-			# cache = await pwd_set_conf_cache_service.get_connection()
-			# await cache.flushdb()
-			# TEMP
-
 			await pwd_set_conf_cache_service.handle_cache_confirmation(str(user.id))
 			reset_id = await pwd_set_conf_cache_service.get_confirmation_token()
-		except TooManyRequestsException:
+		except ExceedLimitConfirmationCacheException:
 			log.info(f"User: {str(user.id)} exceeded limit of password reset")
 			raise TooManyRequestsHTTPException()
 
@@ -131,24 +125,20 @@ async def reset_password(
 			raise ValidationConfirmationCacheException()
 
 		user_id = await pwd_get_conf_cache_service.get_user_id_from_cache(reset_id)
-	except (ConfirmationKeyExpiredCacheException,
-			ConfirmationCounterKeyExpiredCacheException,
-			InvalidConfirmationKeyCacheException,
-			ValidationConfirmationCacheException) as e:
-		log.info(f"/reset-password/{{reset_id}} * Password reset error: {e}")
-		raise BadRequestHTTPException()
 	except OperationCacheException as e:
 		log.warning(
 			f"/reset-password/{{reset_id}} * "
 			f"Password reset error (OperationCacheException): {e}"
 		)
 		raise BadRequestHTTPException()
+	except CacheException as e:
+		log.info(f"/reset-password/{{reset_id}} * Password reset error: {e}")
+		raise BadRequestHTTPException()
 
 	try:
 		await user_reset_pwd_crud.reset_password(
 			user_id,
 			data.password,
-			refresh=False
 		)
 	except UserNotFoundException as e:
 		log.info(f"/reset-password/{{reset_id}} * User not found: {e}")

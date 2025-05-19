@@ -19,7 +19,7 @@ class UserByEmailRetriever(mixins.RetrieveModelMixin,
 		super().__init__(db)
 
 
-class UserResetPasswordCRUD(mixins.UpdateModelMixin[None, schemas.UserResetPassword],
+class UserResetPasswordCRUD(mixins.UpdateModelMixin[None, schemas.ResetPassword],
 							BaseCRUD):
 	model = User
 	# schema = None         # .update() needs orm model
@@ -33,17 +33,17 @@ class UserResetPasswordCRUD(mixins.UpdateModelMixin[None, schemas.UserResetPassw
 			self,
 			user_id: Any,    # lookup_field
 			new_password: str,   # data to update
-			return_attributes: Optional[list[str]] = None,
-			refresh: bool = False,
 	):
-		user = await self.get_object(user_id)
-		if user is None:
-			raise UserNotFoundException("User not found")
+		# user = await self.get_object(user_id)
+		# if user is None:
+		# 	raise UserNotFoundException("User not found")
+		#
+		# old_hashed_password = user.hashed_password
+		# if p.verify_password(new_password, old_hashed_password):
+		# 	raise PasswordUnchangedException(
+		# 		"New password must be different from the current one"
+		# 	)
+		return await self.update(user_id, p.get_password_hash(new_password))
 
-		old_password = user.password
-		if p.verify_password(new_password, old_password):
-			raise PasswordUnchangedException(
-				"New password must be different from the current one"
-			)
-		schema = schemas.UserResetPassword(hashed_password=p.get_password_hash(new_password))
-		return await self.update(user_id, schema, return_attributes, refresh)
+	async def update_password(self, user_id, new_hashed_password):
+		pass

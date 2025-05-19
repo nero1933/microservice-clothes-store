@@ -21,28 +21,36 @@ class PasswordUnchangedException(Exception):
 # ---------- STARTS CacheException ----------
 
 
-class OperationCacheException(Exception):
+class CacheException(Exception):
+	""" Raised when a caching fails """
+	pass
+
+class OperationCacheException(CacheException):
 	""" Raised when a cache operation fails """
 	pass
 
+class ConfirmationCacheException(CacheException):
+	""" Raised when a cache operation for configuration fails """
+	pass
 
-class ConfirmationKeyExpiredCacheException(Exception):
+class ConfirmationKeyExpiredCacheException(ConfirmationCacheException):
 	""" Raised when the confirmation key is missing or expired """
 	pass
 
-
-class ConfirmationCounterKeyExpiredCacheException(Exception):
+class ConfirmationCounterKeyExpiredCacheException(ConfirmationCacheException):
 	""" Raised when the confirmation counter key is missing or expired """
 	pass
 
-
-class InvalidConfirmationKeyCacheException(Exception):
+class InvalidConfirmationKeyCacheException(ConfirmationCacheException):
 	""" Raised when the confirmation key is invalid """
 	pass
 
-
-class ValidationConfirmationCacheException(Exception):
+class ValidationConfirmationCacheException(ConfirmationCacheException):
 	""" Raised when the confirmation validation fails """
+	pass
+
+class ExceedLimitConfirmationCacheException(ConfirmationCacheException):
+	""" Raised when the limit of consumptions is exceeded """
 	pass
 
 # ---------- STOPS CacheException ----------

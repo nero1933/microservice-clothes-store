@@ -53,6 +53,7 @@ class BaseConnection(ABC):
 	async def get_connection(cls):
 		connection_established = await cls._check_connection()
 		if not connection_established:
+			log.warning(f"No connection to {cls._name}. Retrying to connect...")
 			await cls.setup_connection(cls._url)
 			# if cls._url is None:
 			# 	error = (f"No url provided for connection to {cls._name} "
@@ -60,8 +61,7 @@ class BaseConnection(ABC):
 			# 	log.error(error)
 			# 	raise ValueError(error)
 
-			log.warning(f"No connection to {cls._name}")
-			return None
+			return cls._connection
 
 		return cls._connection
 

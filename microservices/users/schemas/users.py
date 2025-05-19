@@ -53,5 +53,5 @@ class UserFull(UserInDB):
 	created_at: datetime
 
 
-class UserResetPassword(BaseModel):
-	hashed_password: str
+# class UserResetPassword(BaseModel):
+# 	hashed_password: str

@@ -17,7 +17,7 @@ class RetrieveModelMixin(Generic[M, S]):
 	depending on whether 'self.schema' is set.
 	"""
 	async def retrieve(self, value: str) -> S | M | None:
-		if self.schema:
+		if getattr(self, 'schema', None):
 			return await self._retrieve_schema(value)
 
 		return await self._retrieve_model(value)
