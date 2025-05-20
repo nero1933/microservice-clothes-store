@@ -1,4 +1,4 @@
-from .base_crud import BaseCRUD, M
 from .mixins import *
+from .abc_crud import *
 
 
