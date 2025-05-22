@@ -88,20 +88,24 @@ class FilterCRUD(BaseCRUD[M], ABC):
 
 class ValueCRUD(BaseCRUD[M], Generic[M, S], ABC):
 
-	def _apply_values(self, stmt: Insert | Update, schema_objs: S | list[S]) -> Insert | Update:
+	def _apply_values(self, stmt: Insert | Update, schema_obj: S) -> Insert | Update:
+		values = self._get_values(schema_obj)
+		return stmt.values(**values)
+
+	def _get_values(self, schema_obj: S) -> dict:
+		return schema_obj.model_dump()
+
+
+class ValueCreateCRUD(ValueCRUD[M, CS], Generic[M, CS], ABC):
+
+	def _apply_values(self, stmt: Insert, schema_objs: CS | list[CS]) -> Insert | Update:
 		values = self._get_values(schema_objs)
 		if isinstance(values, list):
 			return stmt.values(values)
 
 		return stmt.values(**values)
 
-	def _get_values(self, schema_objs: S | list[S]) -> dict | list[dict]:
-		pass
-
-
-class ValueCreateCRUD(ValueCRUD[M, CS], Generic[M, CS], ABC):
-
-	def _get_values(self, schema_objs: S | list[S]) -> list[dict]:
+	def _get_values(self, schema_objs: CS | list[CS]) -> list[dict]:
 		if not isinstance(schema_objs, list):
 			schema_objs = (schema_objs,)
 
@@ -111,9 +115,38 @@ class ValueCreateCRUD(ValueCRUD[M, CS], Generic[M, CS], ABC):
 class ValueUpdateCRUD(ValueCRUD[M, US], Generic[M, US], ABC):
 	partial_update: bool = False
 
-	def _apply_values(self, stmt: Update, schema_obj: US) -> Update:
-		values = self._get_values(schema_obj)
-		return stmt.values(**values)
-
 	def _get_values(self, schema_obj: US) -> dict:
 		return schema_obj.model_dump(exclude_unset=self.partial_update)
+
+
+# class ValueCRUD(BaseCRUD[M], Generic[M, S], ABC):
+#
+# 	def _apply_values(self, stmt: Insert | Update, schema_objs: S | list[S]) -> Insert | Update:
+# 		values = self._get_values(schema_objs)
+# 		if isinstance(values, list):
+# 			return stmt.values(values)
+#
+# 		return stmt.values(**values)
+#
+# 	def _get_values(self, schema_objs: S | list[S]) -> dict | list[dict]:
+# 		pass
+#
+#
+# class ValueCreateCRUD(ValueCRUD[M, CS], Generic[M, CS], ABC):
+#
+# 	def _get_values(self, schema_objs: S | list[S]) -> list[dict]:
+# 		if not isinstance(schema_objs, list):
+# 			schema_objs = (schema_objs,)
+#
+# 		return [obj.model_dump() for obj in schema_objs]
+#
+#
+# class ValueUpdateCRUD(ValueCRUD[M, US], Generic[M, US], ABC):
+# 	partial_update: bool = False
+#
+# 	def _apply_values(self, stmt: Update, schema_obj: US) -> Update:
+# 		values = self._get_values(schema_obj)
+# 		return stmt.values(**values)
+#
+# 	def _get_values(self, schema_obj: US) -> dict:
+# 		return schema_obj.model_dump(exclude_unset=self.partial_update)

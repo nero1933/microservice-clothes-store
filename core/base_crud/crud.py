@@ -1,10 +1,8 @@
-from typing import Any, Type, Sequence, Callable
-
+from typing import Any, Sequence
 from sqlalchemy import Select, Insert, Update, Delete, select, RowMapping, insert, update, delete
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from core.base_crud.base import SchemaCRUD, M, RS, LookupCRUD, FilterCRUD, ReturningCRUD, ValueCRUD, CS, \
-	ValueCreateCRUD, ValueUpdateCRUD, US, BaseCRUD
+from .base import SchemaCRUD, M, RS, LookupCRUD, FilterCRUD, ReturningCRUD, CS, \
+	ValueCreateCRUD, ValueUpdateCRUD, US
 
 
 class RetrieverCRUD(SchemaCRUD[M, RS], LookupCRUD[M]):
